@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ink_500">#151313</color>
+    <color name="ink_50">#F5F4F2</color>
+    <color name="ink_50_60">#99F5F4F2</color>
+    <color name="accent_amber">#E8A43F</color>
+</resources>

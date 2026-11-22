@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_background"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/widget_habit_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#F5F4F2"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/widget_streak"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#E8A43F"
+                android:textSize="12sp"
+                android:layout_marginTop="2dp" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/widget_check"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:src="@drawable/ic_check_outline"
+            android:padding="2dp"
+            android:contentDescription="@string/toggle_complete" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="12dp">
+
+        <ImageView android:id="@+id/dot0" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginEnd="4dp" android:src="@drawable/dot_empty" />
+        <ImageView android:id="@+id/dot1" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginEnd="4dp" android:src="@drawable/dot_empty" />
+        <ImageView android:id="@+id/dot2" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginEnd="4dp" android:src="@drawable/dot_empty" />
+        <ImageView android:id="@+id/dot3" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginEnd="4dp" android:src="@drawable/dot_empty" />
+        <ImageView android:id="@+id/dot4" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginEnd="4dp" android:src="@drawable/dot_empty" />
+        <ImageView android:id="@+id/dot5" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginEnd="4dp" android:src="@drawable/dot_empty" />
+        <ImageView android:id="@+id/dot6" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginEnd="4dp" android:src="@drawable/dot_empty" />
+        <ImageView android:id="@+id/dot7" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginEnd="4dp" android:src="@drawable/dot_empty" />
+        <ImageView android:id="@+id/dot8" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginEnd="4dp" android:src="@drawable/dot_empty" />
+        <ImageView android:id="@+id/dot9" android:layout_width="10dp" android:layout_height="10dp" android:src="@drawable/dot_empty" />
+    </LinearLayout>
+
+</LinearLayout>

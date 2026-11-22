@@ -1,0 +1,109 @@
+﻿# ==========================================
+# HABITLINE - ROOT GITIGNORE
+# ==========================================
+
+# ---- Node.js dependencies ----
+node_modules/
+**/node_modules/
+
+# ---- Frontend build outputs ----
+dist/
+**/dist/
+build/
+**/build/
+.vite/
+**/.vite/
+coverage/
+**/coverage/
+
+# ---- Package manager / tooling ----
+.npm/
+.pnpm-store/
+.turbo/
+.eslintcache
+*.tsbuildinfo
+
+# ---- Environment variables and secrets ----
+.env
+.env.*
+!.env.example
+!.env.*.example
+!.env.*.template
+
+# ---- Logs and temporary files ----
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# ---- SQLite databases and database backups ----
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.bak
+*.backup
+*.dump
+
+# ---- Android / Gradle ----
+.gradle/
+**/.gradle/
+local.properties
+**/local.properties
+**/app/build/
+**/build/
+
+# Android generated packages
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# Android signing credentials
+*.jks
+*.keystore
+key.properties
+**/key.properties
+
+# ---- Android Studio / IntelliJ ----
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# ---- IDE / editor ----
+.vscode/
+*.code-workspace
+
+# ---- Operating system files ----
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ---- Python temporary files ----
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# ---- Test and browser artifacts ----
+playwright-report/
+test-results/
+.nyc_output/
+*.har
+
+# ---- Backup and temporary project artifacts ----
+*.old
+*.orig
+*.rej

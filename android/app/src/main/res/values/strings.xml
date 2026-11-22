@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Habitline Widget</string>
+    <string name="widget_label">Habitline — Habit</string>
+    <string name="widget_config_title">Choose a habit</string>
+    <string name="widget_config_subtitle">Pick which habit this widget should track. Add more widgets to track others.</string>
+    <string name="widget_not_configured">Tap to choose a habit</string>
+    <string name="widget_streak_format">🔥 %d day streak</string>
+    <string name="widget_no_streak">No streak yet</string>
+    <string name="empty_habits_message">No habits yet. Tap + to add one — it will then be available to show in a home-screen widget.</string>
+    <string name="new_habit_title">New habit</string>
+    <string name="habit_name_hint">Habit name</string>
+    <string name="points_hint">Points</string>
+    <string name="icon_hint">Icon</string>
+    <string name="cancel">Cancel</string>
+    <string name="create">Create</string>
+    <string name="delete">Delete</string>
+    <string name="delete_habit_title">Delete habit?</string>
+    <string name="delete_habit_message">This removes \"%1$s\" and its full history. This cannot be undone.</string>
+    <string name="toggle_complete">Mark today complete</string>
+    <string name="habit_meta_format">%1$d pts · 🔥 %2$d day streak</string>
+    <string name="open_app_to_add_habit">Open app to add a habit</string>
+    <string name="sync_limitation_notice">This app stores habits separately from the Habitline web app — they don\'t sync automatically yet. Add habits here to show them in a home-screen widget. See the project README for details.</string>
+</resources>
