@@ -65,6 +65,8 @@ class MainActivity : AppCompatActivity() {
         model = ViewModelProvider(this)[MainViewModel::class.java]
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        WindowInsetsControllerCompat(window, binding.root).isAppearanceLightNavigationBars =
+            resources.getBoolean(R.bool.light_system_bars)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         binding.navigation.setOnItemSelectedListener { item ->
             tabItems.entries.firstOrNull { it.value == item.itemId }?.let {

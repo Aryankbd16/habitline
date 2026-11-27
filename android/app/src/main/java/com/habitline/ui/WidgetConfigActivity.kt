@@ -8,6 +8,7 @@ import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import com.habitline.R
 import com.habitline.data.HabitRepository
@@ -28,6 +29,8 @@ class WidgetConfigActivity : AppCompatActivity() {
         }
         val binding = ActivityWidgetConfigBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        WindowInsetsControllerCompat(window, binding.root).isAppearanceLightNavigationBars =
+            resources.getBoolean(R.bool.light_system_bars)
         binding.openAppButton.setOnClickListener { startActivity(Intent(this, MainActivity::class.java)); finish() }
         val repo = HabitRepository(this)
         lifecycleScope.launch {

@@ -11,9 +11,9 @@ The Stage C app version is `1.2-offline`, code `3`, with package `com.habitline`
 | Checkpoint | Delivered | Local verification |
 | --- | --- | --- |
 | C1 | Jetpack ViewModel, observable Room state, native navigation, recovery states and the Today dashboard | Kotlin source and shared progress rules |
-| C2 | Habit details, creation and editing, built-in and custom categories, start date, schedule, points, priority, icon, archive, restore, deletion and contextual relationships | JVM validation and schedule cases. Room instrumentation is configured in CI. |
-| C3 | Monday-start calendar, daily history, monthly navigation, profile name, profession and appearance | JVM calendar, historical schedule and streak cases. Profile persistence is covered by the staged Room and emulator checks. |
-| C4 | Material layouts and theme palettes, accessibility labels, a native offline smoke test and hosted diagnostics | Kotlin source, Android resource compilation, Node, Edge and the web production build. Hosted Android checks remain pending push approval. |
+| C2 | Habit details, creation and editing, built-in and custom categories, start date, schedule, points, priority, icon, archive, restore, deletion and contextual relationships | JVM validation, schedule cases and hosted Room instrumentation passed on `e4da6fb`. |
+| C3 | Monday-start calendar, daily history, monthly navigation, profile name, profession and appearance | Calendar and streak tests passed. Room and the hosted emulator verified profile persistence on `e4da6fb`. |
+| C4 | Material layouts and theme palettes, accessibility labels, a native offline smoke test and hosted diagnostics | Build and emulator checks passed on `e4da6fb`. The lint fix requires a hosted rerun. |
 
 ## Screens and behavior
 
@@ -33,16 +33,18 @@ The activity renders XML screens from a lifecycle-aware ViewModel. Room provides
 
 ## Verification
 
+The first Stage C run built and installed `e4da6fb`. The API 34 emulator passed the prototype upgrade and clean-install UI scenarios with airplane mode enabled, Wi‑Fi and mobile data disabled. The installed debug APK did not request the Android Internet permission. [Stage C run 46019079212](https://github.com/Aryankbd16/habitline/actions/runs/46019079212).
+
 | Check | Stage C result |
 | --- | --- |
-| Kotlin JVM | **7 passed** using Kotlin 1.9.24 and JUnit 4.13.2 directly. Includes both baseline tests and five Stage C tests. |
+| Kotlin JVM | **7 passed** both locally with Kotlin 1.9.24 and JUnit 4.13.2 and under hosted Gradle. Includes both baseline tests and five Stage C tests. |
 | Android source and resources | 18 app and instrumentation Kotlin files type-checked with API 34, pinned library binaries and temporary XML-derived binding types. Android resources compiled with AAPT2. All 24 DAO queries prepared successfully against the pinned schema in SQLite. These checks do not exercise Gradle view binding generation or app startup. |
 | Workflow scripts | `actionlint` 1.7.7, Bash syntax and Python syntax passed. |
-| Room instrumentation and legacy migration | The four baseline instrumentation tests remain intact. Three new tests cover persisted CRUD and archive history, Room Flow progress and local date rollover, and unique relationship transactions. Hosted execution is pending. |
-| Emulator | The workflow stages an offline prototype-to-Stage C upgrade and a separate clean install. The native smoke test exercises blank-name validation, rotation, a selected weekday schedule, mark and undo, progress, month navigation, history after archive, process restart, editing, restore, confirmed deletion and profile persistence. Hosted execution is pending. |
-| Android lint | Configured as a hosted check. No Stage C Android lint result yet. |
+| Room instrumentation and legacy migration | **7 passed** on API 34. The XML report records zero failures, errors and skips. The signed prototype-to-Stage C upgrade preserved the original preferences byte for byte. |
+| Emulator | **Passed** on API 34. The installed APK exercised blank-name validation, rotation, a selected weekday schedule, mark and undo, progress, month navigation, history after archive, process restart, editing, restore, confirmed deletion and profile persistence. |
+| Android lint | Run 46019079212 found 1 error and 52 warnings. The error was an API 27 theme attribute used in the API 26 theme. Both activities now set navigation-bar contrast through AndroidX's API 26-compatible window controller. The fix awaits hosted verification. [AndroidX window controller](https://developer.android.com/reference/androidx/core/view/WindowInsetsControllerCompat#setAppearanceLightNavigationBars(boolean)). |
 | Web and backend | **8 Node tests passed**, including the existing Phase 2–4 suites and shared schedule fixture. **Headless Edge passed** and the **web production build passed** with the existing large-chunk warning. The regression suites used disposable SQLite databases. |
-| GitHub Actions APK | Stage C run URL, downloadable APK, exact file size and digest are pending. The configured artifact is `habitline-1.2-offline-debug-<run>-<attempt>`. [Android APK workflow](https://github.com/Aryankbd16/habitline/actions/workflows/android-apk.yml). |
+| GitHub Actions APK | `habitline-1.2-offline-debug-46019079212-1`, 6,351,663 APK bytes. APK SHA-256 `b371a2e0a004b7c0e0fc73228a0711a589fce7ab12ce7884ab617c42ad4607a6`. The local download matched GitHub's ZIP digest and passed APK ZIP integrity. [Debug APK artifact](https://github.com/Aryankbd16/habitline/actions/runs/46019079212/artifacts/15206797855), [reports](https://github.com/Aryankbd16/habitline/actions/runs/46019079212/artifacts/15208296610). |
 
 ## Files
 
@@ -58,11 +60,11 @@ The activity renders XML screens from a lifecycle-aware ViewModel. Room provides
 
 ## Acceptance and later stages
 
-Stage C still needs the workflow to assemble the APK, run Android lint and the Room tests, and install and exercise that APK in the hosted emulator. Physical-device operation, launcher widget behavior and API 26 runtime coverage still need device validation. Hosted debug keys are disposable, so an in-place update on a phone requires the certificate that signed its existing installation.
+Stage C still needs a successful hosted run for the navigation-bar compatibility fix. Physical-device operation, launcher widget behavior and API 26 runtime coverage still need device validation. Hosted debug keys are disposable, so an in-place update on a phone requires the certificate that signed its existing installation.
 
 - **Stage D** covers analytics, insights, goals, XP and levels, milestones, challenges and social feature parity.
 - **Stage E** covers backup/import, reminder delivery and expanded Android widget testing.
 - **Stage F** covers authenticated local Wi-Fi pairing and synchronization.
 - **Stage G** covers production signing, distribution and full device validation.
 
-After push approval, run the workflow for the local Stage C checkpoint, review the job results and record the APK details from the run summary.
+After push approval for the fix, rerun the workflow and record its lint, emulator and APK results.

@@ -14,7 +14,6 @@
         <item name="android:navigationBarColor">@color/app_surface</item>
         <item name="android:statusBarColor">@color/app_background</item>
         <item name="android:windowLightStatusBar">@bool/light_system_bars</item>
-        <item name="android:windowLightNavigationBar">@bool/light_system_bars</item>
         <item name="shapeAppearanceSmallComponent">@style/Habitline.Shape.Small</item>
     </style>
     <style name="Habitline.Shape.Small" parent="ShapeAppearance.MaterialComponents.SmallComponent">
