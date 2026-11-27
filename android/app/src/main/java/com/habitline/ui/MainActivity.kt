@@ -29,6 +29,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.NumberFormat
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -138,6 +139,7 @@ private class HabitAdapter(
     val onDelete: (LocalHabit) -> Unit
 ) : RecyclerView.Adapter<HabitAdapter.VH>() {
     private var state: TrackerSnapshot? = null
+    private val pointFormat = NumberFormat.getNumberInstance().apply { maximumFractionDigits = 340 }
 
     fun submit(value: TrackerSnapshot) {
         state = value
@@ -157,7 +159,8 @@ private class HabitAdapter(
         val completed = snapshot.isDone(habit.id)
         with(holder.binding) {
             habitName.text = "${habit.icon}  ${habit.name}"
-            habitMeta.text = root.context.getString(R.string.habit_meta_decimal, schedule?.points ?: 0.0, snapshot.streak(habit.id))
+            val points = pointFormat.format(schedule?.points ?: 0.0)
+            habitMeta.text = root.context.getString(R.string.habit_meta_decimal, points, snapshot.streak(habit.id))
             checkButton.isSelected = completed
             checkButton.isEnabled = completed || schedule.scheduledOn(snapshot.today)
             checkButton.setImageResource(if (completed) R.drawable.ic_check_filled else R.drawable.ic_check_outline)

@@ -60,3 +60,17 @@ The Room entities and DAO are under `android/app/src/main/java/com/habitline/dat
 The migration reads the version-one preferences directly, checks types, IDs, dates and references, rejects duplicate object keys, collapses exact duplicate legacy completion pairs and compares the imported sets inside the transaction. It retains the original JSON. Its SHA-256 is recorded with the migration marker. The legacy store has date-only completions and no saved XP or historical points. Migrated rows preserve the local date, use the available habit points and leave the unknown completion instant and XP unset. The creation instant is converted to the device's local date on first migration because the old store does not record the creation time zone. A failed migration leaves tracking unavailable and offers export of the original JSON for recovery.
 
 The Stage B changes include the Android Gradle files, manifest, strings, repository and records, the two activities, both widget entry points, CI upgrade checks, Kotlin unit and instrumentation tests, and the shared schedule fixture with its Node test. Node passed that fixture. The hosted workflow is configured to build the original app and upgrade it using the same signing certificate, compare the original preference files, exercise local writes after restart and run database tests on the emulator. These are pending executions until the corresponding run reports results.
+
+### Storage build results
+
+The authorized Stage B commit `0012136` produced [the Room debug APK](https://github.com/Aryankbd16/habitline/actions/runs/45986843802/artifacts/15190904350). The package is `com.habitline`, version `1.1-storage`, code 2, min API 26, target API 34. The extracted APK is 6,221,119 bytes with SHA-256 `beb2fdf5d1f2d59c3a8ca72add853f4033e08e177edd966905800593e9219f88`. A verified local copy is in `android/build/distributions/habitline-1.1-storage-45986843802-debug.apk`.
+
+| Check in run 45986843802 | Result |
+| --- | --- |
+| Original prototype in airplane mode on API 34 | Created a habit, completed it, force-stopped and relaunched, verified the completion and undid it. |
+| In-place signed upgrade on API 34 | Installed the Room APK over the prototype, found the original habit, marked it, force-stopped, relaunched and verified the mark. Original preferences XML compared byte for byte after upgrade. |
+| Room instrumentation | Four tests passed. Covered first use, preserved UUIDs/dates/widget mapping, duplicate date handling, retained JSON, replay, corrupt input, rollback, foreign keys, unique completion, concurrent widget operations, XP reversal and tombstones. |
+| JVM and Node | Two Kotlin unit tests passed. Node and Kotlin passed the shared historical schedule, streak and time-zone fixture. |
+| Android lint | 2 errors and 47 warnings. Both errors refer to the same numeric argument supplied for a string placeholder on the habit card. The follow-up formats points with the locale's number formatter before interpolation. |
+
+[Build and test run](https://github.com/Aryankbd16/habitline/actions/runs/45986843802), [logs, generated schema and reports](https://github.com/Aryankbd16/habitline/actions/runs/45986843802/artifacts/15192325623). The Room v1 schema snapshot is pinned under `android/app/schemas/`. Device coverage is the API 34 emulator. Physical devices, API 26, device reboot, launcher placement and a publisher-signed release still require validation.

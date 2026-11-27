@@ -40,7 +40,7 @@ From the repository root, `node --test tests/stage2.test.cjs` runs the API and c
 
 The Android project builds on a GitHub-hosted Linux runner. See the [Android build and widget guide](android/README.md) for artifacts, signing and installation, and the [APK milestone audit](PHASE5-AUDIT.md) for parity and acceptance criteria.
 
-Android still uses local SharedPreferences and has no shared account client. Future synchronization needs an Android authentication flow, offline writes with idempotent IDs, conflict resolution, stable deletion markers and widget refresh after sync. Shared rules should cover local-date boundaries, schedules and completion points before both clients exchange data.
+The verified prototype APK uses SharedPreferences. The subsequent storage checkpoint moves the app and widget to Room and preserves the original JSON during migration. See the [build and test record](PHASE5-REPORT.md) for the version each result covers. Pairing and cross-device reconciliation are pending.
 
 ## Phase 3 progress intelligence
 
