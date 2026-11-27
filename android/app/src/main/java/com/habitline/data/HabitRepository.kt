@@ -1,138 +1,107 @@
 package com.habitline.data
 
 import android.content.Context
+import android.content.SharedPreferences
+import androidx.room.withTransaction
 import com.google.gson.Gson
-import java.text.SimpleDateFormat
-import java.util.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.collect
+import java.time.Clock
+import java.time.LocalDate
+import java.time.ZoneId
 
-/**
- * IMPORTANT — read this before wiring up sync:
- *
- * This repository is intentionally **independent** from the web app's
- * IndexedDB storage. A browser's IndexedDB cannot be read by a native
- * Android process — they are different storage sandboxes on different
- * "sides" of the device (browser engine vs. native app), even on the same
- * phone. There is no API that lets a home-screen widget reach into another
- * app's (or a browser tab's) local database.
- *
- * Because of that, Phase 1 ships the widget as a genuinely separate, fully
- * working local prototype: you add/track habits directly in this Android
- * app, and the widget reads from THIS app's own storage
- * (SharedPreferences, as a single JSON blob for simplicity — see
- * HabitStore in Habit.kt).
- *
- * To actually mirror data between the web app and this widget today, export
- * a backup from the web app (Settings → Export) and manually re-create the
- * same habits here — there is no automated bridge yet.
- *
- * A future phase could add real sync via one of:
- *   - A small local HTTP server the web app exposes on localhost that this
- *     app polls (works only while a companion desktop process is running).
- *   - A shared account + lightweight cloud sync service.
- *   - Android's Storage Access Framework, having the user manually pick the
- *     exported JSON file, imported here (closest thing to a "one tap" bridge
- *     without a backend).
- * None of these are implemented in Phase 1; do not assume live sync exists.
- */
-class HabitRepository(context: Context) {
-    private val prefs = context.getSharedPreferences("habitline_store", Context.MODE_PRIVATE)
+class HabitRepository(
+    context: Context,
+    private val db: TrackerDatabase = TrackerDatabase.open(context),
+    private val clock: Clock = Clock.systemUTC(),
+    private val prefs: SharedPreferences = context.getSharedPreferences("habitline_store", Context.MODE_PRIVATE)
+) {
+    private val dao = db.tracker()
     private val gson = Gson()
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    private fun today() = clock.instant().atZone(ZoneId.systemDefault()).toLocalDate()
+    private fun profile() = dao.migration()?.profileId ?: migratePreferences(
+        dao, prefs.getString("habitline_store_json", null), clock.instant(), ZoneId.systemDefault()
+    ).profileId
 
-    fun today(): String = dateFormat.format(Date())
-
-    fun load(): HabitStore {
-        val json = prefs.getString(KEY_STORE, null) ?: return HabitStore()
-        return try {
-            gson.fromJson(json, HabitStore::class.java) ?: HabitStore()
-        } catch (e: Exception) {
-            HabitStore()
-        }
+    suspend fun snapshot() = db.withTransaction {
+        profile()
+        TrackerSnapshot(dao.habits(), dao.revisions(), dao.completions(), dao.widgets().associate { it.widgetId to it.habitId }, today())
     }
 
-    fun save(store: HabitStore) {
-        prefs.edit().putString(KEY_STORE, gson.toJson(store)).apply()
+    fun observe(): Flow<TrackerSnapshot> = flow {
+        db.withTransaction { profile() }
+        dao.observeTracker().collect { emit(snapshot()) }
     }
 
-    fun addHabit(name: String, icon: String, points: Int): Habit {
-        val store = load()
-        val habit = Habit(id = UUID.randomUUID().toString(), name = name, icon = icon, points = points)
-        store.habits.add(habit)
-        save(store)
-        return habit
+    suspend fun addHabit(name: String, icon: String, points: Int) = db.withTransaction {
+        require(name.isNotBlank() && points >= 0)
+        val owner = profile()
+        val stamp = clock.instant().toString()
+        val day = today().toString()
+        val habit = LocalHabit(uuid(), owner, name.trim(), icon, stamp, stamp)
+        val revision = ScheduleRevision(uuid(), habit.id, day, day, 127, points.toDouble())
+        dao.insert(habit)
+        dao.insert(revision)
+        record(owner, "habit", habit.id, "create", mapOf("habit" to habit, "revision" to revision))
+        habit
     }
 
-    fun deleteHabit(habitId: String) {
-        val store = load()
-        store.habits.removeAll { it.id == habitId }
-        store.completions.removeAll { it.habitId == habitId }
-        store.widgetHabitMap.entries.removeAll { it.value == habitId }
-        save(store)
-    }
-
-    fun isCompletedOn(habitId: String, date: String): Boolean {
-        return load().completions.any { it.habitId == habitId && it.date == date }
-    }
-
-    /** Toggle completion; guarantees no duplicate completion rows, same rule as the web app. */
-    fun toggleCompletion(habitId: String, date: String = today()): Boolean {
-        val store = load()
-        val existing = store.completions.find { it.habitId == habitId && it.date == date }
-        val nowCompleted: Boolean
-        if (existing != null) {
-            store.completions.remove(existing)
-            nowCompleted = false
+    suspend fun setCompleted(id: String, day: LocalDate, desired: Boolean, widget: Int? = null) = db.withTransaction {
+        val owner = profile()
+        if (widget != null && dao.boundHabit(widget) != id) return@withTransaction
+        require(day == today()) { "The date changed. Refresh today's habits." }
+        val habit = dao.habit(id) ?: return@withTransaction
+        val key = day.toString()
+        val prior = dao.completion(id, key)
+        if (desired == (prior != null)) return@withTransaction
+        val stamp = clock.instant().toString()
+        if (desired) {
+            val schedule = dao.schedule(id, key)
+            require(schedule.scheduledOn(day)) { "This habit is not scheduled today." }
+            val reward = dao.firstAward(id, key) ?: habit.xpValue
+            val row = HabitCompletion(uuid(), id, key, stamp, requireNotNull(schedule).points, reward)
+            val event = XpEvent(eventId(row.id + "/award"), owner, row.id, id, key, "award", reward, stamp)
+            dao.insert(row)
+            dao.insert(event)
+            record(owner, "completion", row.id, "mark", mapOf("completion" to row, "event" to event))
         } else {
-            store.completions.add(Completion(habitId, date))
-            nowCompleted = true
+            undo(owner, requireNotNull(prior), stamp)
         }
-        save(store)
-        return nowCompleted
     }
 
-    fun currentStreak(habitId: String): Int {
-        val store = load()
-        val dates = store.completions.filter { it.habitId == habitId }.map { it.date }.toHashSet()
-        var streak = 0
-        val cal = Calendar.getInstance()
-        // If today isn't completed yet, start counting from yesterday so an
-        // unfinished "today" doesn't zero out an otherwise-intact streak.
-        if (!dates.contains(today())) cal.add(Calendar.DAY_OF_YEAR, -1)
-        repeat(3650) {
-            val d = dateFormat.format(cal.time)
-            if (dates.contains(d)) {
-                streak++
-                cal.add(Calendar.DAY_OF_YEAR, -1)
-            } else {
-                return streak
-            }
+    suspend fun deleteHabit(id: String) = db.withTransaction {
+        val owner = profile()
+        if (dao.habit(id) == null) return@withTransaction
+        val stamp = clock.instant().toString()
+        for (row in dao.habitCompletions(id)) undo(owner, row, stamp)
+        dao.deleteHabit(id)
+        dao.insert(Deletion(uuid(), owner, "habit", id, stamp))
+        record(owner, "habit", id, "delete", mapOf("id" to id))
+    }
+
+    private fun undo(owner: String, row: HabitCompletion, stamp: String) {
+        val reversal = row.xpEarned?.let {
+            XpEvent(eventId(row.id + "/reverse"), owner, row.id, row.habitId, row.day, "reverse", -it, stamp)
         }
-        return streak
+        if (reversal != null) dao.insert(reversal)
+        dao.deleteCompletion(row.id)
+        dao.insert(Deletion(uuid(), owner, "completion", row.id, stamp))
+        record(owner, "completion", row.id, "undo", mapOf("habitId" to row.habitId, "day" to row.day, "event" to reversal))
     }
 
-    fun recentCompletionDates(habitId: String, days: Int): List<String> {
-        val store = load()
-        return store.completions.filter { it.habitId == habitId }.map { it.date }
-            .sortedDescending().take(days)
+    private fun record(owner: String, entity: String, id: String, op: String, value: Any) {
+        dao.insert(PendingMutation(uuid(), owner, entity, id, op, gson.toJson(value), clock.instant().toString()))
     }
 
-    fun setWidgetHabit(widgetId: Int, habitId: String) {
-        val store = load()
-        store.widgetHabitMap[widgetId.toString()] = habitId
-        save(store)
+    suspend fun bindWidget(widget: Int, id: String) = db.withTransaction {
+        profile()
+        require(widget > 0 && dao.habit(id) != null)
+        dao.bind(WidgetBinding(widget, id))
     }
 
-    fun getWidgetHabitId(widgetId: Int): String? {
-        return load().widgetHabitMap[widgetId.toString()]
-    }
-
-    fun clearWidget(widgetId: Int) {
-        val store = load()
-        store.widgetHabitMap.remove(widgetId.toString())
-        save(store)
-    }
-
-    companion object {
-        private const val KEY_STORE = "habitline_store_json"
+    suspend fun clearWidgets(ids: IntArray) = db.withTransaction {
+        profile()
+        ids.forEach(dao::clearWidget)
     }
 }

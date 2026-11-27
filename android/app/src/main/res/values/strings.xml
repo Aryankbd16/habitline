@@ -19,6 +19,14 @@
     <string name="delete_habit_message">This removes \"%1$s\" and its full history. This cannot be undone.</string>
     <string name="toggle_complete">Mark today complete</string>
     <string name="habit_meta_format">%1$d pts · 🔥 %2$d day streak</string>
+    <string name="habit_meta_decimal">%1$s pts · 🔥 %2$d day streak</string>
+    <string name="undo_complete">Undo today\'s completion</string>
+    <string name="local_storage_loading">Opening your local habits…</string>
+    <string name="storage_recovery_title">Local storage needs attention</string>
+    <string name="storage_recovery_message">Habitline could not open your local records. Save a copy of the original tracking data for recovery, then retry. Keep the app installed to preserve its data.</string>
+    <string name="open_for_recovery">Open Habitline for recovery</string>
+    <string name="save_original">Save original JSON</string>
+    <string name="retry_storage">Retry</string>
     <string name="open_app_to_add_habit">Open app to add a habit</string>
     <string name="sync_limitation_notice">This app stores habits separately from the Habitline web app — they don\'t sync automatically yet. Add habits here to show them in a home-screen widget. See the project README for details.</string>
 </resources>

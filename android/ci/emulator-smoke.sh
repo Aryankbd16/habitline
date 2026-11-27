@@ -38,9 +38,30 @@ done
 [[ "$(adb get-state)" == device ]]
 timeout 240 bash -c 'until [[ "$(adb shell getprop sys.boot_completed | tr -d "\r")" == 1 ]]; do sleep 2; done'
 adb shell wm dismiss-keyguard
-adb install android/app/build/outputs/apk/debug/app-debug.apk
+adb shell wm size 1080x1920
+adb shell wm density 360
+adb shell settings put system screen_off_timeout 1800000
+adb shell settings put secure show_ime_with_hard_keyboard 0
+trap 'adb logcat -d -b crash > android/emulator-crash.log 2>&1 || true; kill "$emulator_pid" 2>/dev/null || true' EXIT
+adb install "$BASELINE_APK"
 adb shell cmd connectivity airplane-mode enable
 [[ "$(adb shell settings get global airplane_mode_on | tr -d '\r')" == 1 ]]
 adb shell svc wifi disable
 adb shell svc data disable
-python3 android/ci/prototype_smoke.py
+status=0
+if python3 android/ci/prototype_smoke.py; then
+  adb shell am force-stop com.habitline
+  adb exec-out run-as com.habitline cat shared_prefs/habitline_store.xml > "$RUNNER_TEMP/before-upgrade.xml"
+else
+  status=1
+fi
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+if [[ -f "$RUNNER_TEMP/before-upgrade.xml" ]]; then
+  python3 android/ci/prototype_smoke.py --verify-upgrade || status=1
+  adb exec-out run-as com.habitline cat shared_prefs/habitline_store.xml > "$RUNNER_TEMP/after-upgrade.xml"
+  cmp "$RUNNER_TEMP/before-upgrade.xml" "$RUNNER_TEMP/after-upgrade.xml" || status=1
+fi
+# Gradle uses the same hosted debug certificate that signed both APKs.
+unset ANDROID_USER_HOME ANDROID_EMULATOR_HOME ANDROID_AVD_HOME
+android/gradlew -p android --no-daemon --stacktrace :app:connectedDebugAndroidTest
+exit "$status"

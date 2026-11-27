@@ -5,31 +5,21 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.habitline.data.HabitRepository
+import java.time.LocalDate
 
-/**
- * Handles the one-tap "mark today's habit complete" action directly from the
- * home screen, without launching the app (spec section 23: "Provide quick
- * completion action" / "Provide undo if technically practical"). Tapping
- * again undoes it, since toggleCompletion() flips state.
- */
 class ToggleCompletionReceiver : BroadcastReceiver() {
-
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != ACTION_TOGGLE) return
-
-        val habitId = intent.getStringExtra(EXTRA_HABIT_ID) ?: return
-        val widgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1)
-        if (widgetId == -1) return
-
-        val repo = HabitRepository(context)
-        repo.toggleCompletion(habitId)
-
-        val appWidgetManager = AppWidgetManager.getInstance(context)
-        HabitWidgetProvider.updateWidget(context, appWidgetManager, widgetId)
+        if (intent.action != ACTION || !intent.hasExtra("desired")) return
+        val id = intent.getStringExtra("habit") ?: return
+        val date = intent.getStringExtra("day") ?: return
+        val widget = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1)
+        if (widget <= 0) return
+        runWidgetTask(context) {
+            val today = LocalDate.now()
+            if (date == today.toString()) HabitRepository(context).setCompleted(id, today, intent.getBooleanExtra("desired", false), widget)
+            HabitWidgetProvider.refreshAll(context)
+        }
     }
 
-    companion object {
-        const val ACTION_TOGGLE = "com.habitline.action.TOGGLE_COMPLETION"
-        const val EXTRA_HABIT_ID = "extra_habit_id"
-    }
+    companion object { const val ACTION = "com.habitline.widget.SET_COMPLETED" }
 }

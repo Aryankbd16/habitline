@@ -2,6 +2,7 @@
 
 import re
 import subprocess
+import sys
 import time
 from xml.etree import ElementTree
 
@@ -25,6 +26,8 @@ def find(resource, **attributes):
             ):
                 return node
         time.sleep(0.3)
+    with open("android/emulator-window.log", "wb") as out:
+        out.write(ElementTree.tostring(tree, encoding="utf-8"))
     raise AssertionError(f"Timed out looking for {resource} {attributes}")
 
 
@@ -36,10 +39,24 @@ def tap(resource):
 def main():
     prefix = PACKAGE + ":id/"
     adb("shell", "am", "start", "-W", "-n", ACTIVITY)
+    if sys.argv[1:] == ["--verify-upgrade"]:
+        assert "OfflineSmoke" in find(prefix + "habitName").get("text")
+        find(prefix + "checkButton", selected="false")
+        tap(prefix + "checkButton")
+        find(prefix + "checkButton", selected="true")
+        adb("shell", "am", "force-stop", PACKAGE)
+        adb("shell", "am", "start", "-W", "-n", ACTIVITY)
+        find(prefix + "checkButton", selected="true")
+        print("Existing habit survived an offline in-place upgrade and restart.")
+        return
     find(prefix + "emptyState")
     tap(prefix + "fabAdd")
     tap(prefix + "input_name")
+    find(prefix + "input_name", focused="true")
     adb("shell", "input", "text", "OfflineSmoke")
+    find(prefix + "input_name", text="OfflineSmoke")
+    if "mInputShown=true" in adb("shell", "dumpsys", "input_method"):
+        adb("shell", "input", "keyevent", "KEYCODE_BACK")
     tap("android:id/button1")
     assert "OfflineSmoke" in find(prefix + "habitName").get("text")
     tap(prefix + "checkButton")

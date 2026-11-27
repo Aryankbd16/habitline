@@ -1,0 +1,93 @@
+{
+  "id": "782f7f42-4662-4097-9557-379481032a94",
+  "dates": [
+    "2026-03-01",
+    "2026-03-08",
+    "2026-03-11"
+  ],
+  "schedules": [
+    {
+      "effectiveFrom": "2026-03-01",
+      "days": [
+        0
+      ],
+      "archived": false,
+      "points": 1.5
+    },
+    {
+      "effectiveFrom": "2026-03-09",
+      "days": [
+        3
+      ],
+      "archived": false,
+      "points": 4.25
+    },
+    {
+      "effectiveFrom": "2026-03-15",
+      "days": [
+        3
+      ],
+      "archived": true,
+      "points": 4.25
+    }
+  ],
+  "cases": [
+    {
+      "day": "2026-03-01",
+      "scheduled": true,
+      "streak": 1
+    },
+    {
+      "day": "2026-03-07",
+      "scheduled": false,
+      "streak": 1
+    },
+    {
+      "day": "2026-03-08",
+      "scheduled": true,
+      "streak": 2
+    },
+    {
+      "day": "2026-03-09",
+      "scheduled": false,
+      "streak": 2
+    },
+    {
+      "day": "2026-03-11",
+      "scheduled": true,
+      "streak": 3
+    },
+    {
+      "day": "2026-03-14",
+      "scheduled": false,
+      "streak": 3
+    },
+    {
+      "day": "2026-03-15",
+      "scheduled": false,
+      "streak": 0
+    }
+  ],
+  "zonedDates": [
+    {
+      "utc": "2026-03-08T04:59:59Z",
+      "zone": "America/New_York",
+      "day": "2026-03-07"
+    },
+    {
+      "utc": "2026-03-08T07:00:00Z",
+      "zone": "America/New_York",
+      "day": "2026-03-08"
+    },
+    {
+      "utc": "2026-11-01T06:30:00Z",
+      "zone": "America/New_York",
+      "day": "2026-11-01"
+    },
+    {
+      "utc": "2026-03-08T18:45:00Z",
+      "zone": "Asia/Kolkata",
+      "day": "2026-03-09"
+    }
+  ]
+}
