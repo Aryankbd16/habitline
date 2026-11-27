@@ -66,8 +66,13 @@ jobs:
           sdk="$ANDROID_HOME/build-tools/$BUILD_TOOLS"
           "$sdk/apksigner" verify --verbose --print-certs "$apk"
           "$sdk/aapt" dump badging "$apk" > android/debug-manifest.log
+          "$sdk/aapt" dump permissions "$apk" > android/debug-permissions.log
           grep -F "package: name='com.habitline'" android/debug-manifest.log
           grep -Fx "sdkVersion:'26'" android/debug-manifest.log
+          if grep -Fq 'android.permission.INTERNET' android/debug-permissions.log; then
+            echo 'The offline debug APK requested INTERNET permission.' >&2
+            exit 1
+          fi
           version=$(sed -n "s/^package: .*versionName='\([^']*\)'.*/\1/p" android/debug-manifest.log)
           [[ "$version" =~ ^[a-zA-Z0-9._+-]+$ ]]
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -85,7 +90,7 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
-      - name: Run offline prototype smoke test on API 34
+      - name: Test offline native UI, prototype upgrade and Room on API 34
         run: |
           mkdir "$RUNNER_TEMP/habitline-prototype"
           git archive 8dc549d88534089f81d97706e6e7bdc5907408fb android | tar -x -C "$RUNNER_TEMP/habitline-prototype"
@@ -121,8 +126,10 @@ jobs:
           name: android-checks-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             android/*.log
+            android/stage-c-emulator.png
             android/app/build/reports/
             android/app/build/test-results/
+            android/app/build/outputs/androidTest-results/
             android/app/schemas/
           if-no-files-found: warn
 

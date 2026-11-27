@@ -74,3 +74,9 @@ The authorized Stage B commit `0012136` produced [the Room debug APK](https://gi
 | Android lint | 2 errors and 47 warnings. Both errors refer to the same numeric argument supplied for a string placeholder on the habit card. The follow-up formats points with the locale's number formatter before interpolation. |
 
 [Build and test run](https://github.com/Aryankbd16/habitline/actions/runs/45986843802), [logs, generated schema and reports](https://github.com/Aryankbd16/habitline/actions/runs/45986843802/artifacts/15192325623). The Room v1 schema snapshot is pinned under `android/app/schemas/`. Device coverage is the API 34 emulator. Physical devices, API 26, device reboot, launcher placement and a publisher-signed release still require validation.
+
+The corrected Room checkpoint `89cff3a` passed the hosted packaging, emulator, Kotlin and lint workflow. [Android APK run 45989591071](https://github.com/Aryankbd16/habitline/actions/runs/45989591071).
+
+## Stage C — offline Android core
+
+Read the [Stage C implementation and verification record](android/STAGE-C.md) for native screens, schedule behavior, file inventory and acceptance status.

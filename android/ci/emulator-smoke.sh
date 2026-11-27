@@ -57,11 +57,17 @@ else
 fi
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 if [[ -f "$RUNNER_TEMP/before-upgrade.xml" ]]; then
-  python3 android/ci/prototype_smoke.py --verify-upgrade || status=1
+  python3 android/ci/stage_c_smoke.py --verify-upgrade || status=1
   adb exec-out run-as com.habitline cat shared_prefs/habitline_store.xml > "$RUNNER_TEMP/after-upgrade.xml"
   cmp "$RUNNER_TEMP/before-upgrade.xml" "$RUNNER_TEMP/after-upgrade.xml" || status=1
 fi
+adb uninstall com.habitline
+adb install android/app/build/outputs/apk/debug/app-debug.apk
+if ! python3 android/ci/stage_c_smoke.py; then
+  adb exec-out screencap -p > android/stage-c-emulator.png || true
+  status=1
+fi
 # Gradle uses the same hosted debug certificate that signed both APKs.
 unset ANDROID_USER_HOME ANDROID_EMULATOR_HOME ANDROID_AVD_HOME
-android/gradlew -p android --no-daemon --stacktrace :app:connectedDebugAndroidTest
+android/gradlew -p android --no-daemon --stacktrace :app:connectedDebugAndroidTest || status=1
 exit "$status"

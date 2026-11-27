@@ -1,174 +1,215 @@
 package com.habitline.ui
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
-import android.widget.ArrayAdapter
-import android.widget.Spinner
+import android.view.WindowManager
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.content.ContextCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.snackbar.Snackbar
 import com.habitline.R
-import com.habitline.data.HabitRepository
-import com.habitline.data.LocalHabit
-import com.habitline.data.TrackerSnapshot
-import com.habitline.data.scheduledOn
+import com.habitline.data.ThemeChoice
 import com.habitline.databinding.ActivityMainBinding
-import com.habitline.databinding.ItemHabitBinding
-import com.habitline.widget.HabitWidgetProvider
+import com.habitline.databinding.ScreenStorageBinding
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.text.NumberFormat
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
-    private val repo by lazy { HabitRepository(this) }
+    internal lateinit var model: MainViewModel
+        private set
+    internal val content get() = binding.content
+    private var activeRoute: String? = null
+    private var renderer: ScreenRenderer? = null
+    private var changingBar = false
+    private val timeChanges = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) { model.refreshTime() }
+    }
+
     private val exportLegacy = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) lifecycleScope.launch {
             try {
                 withContext(Dispatchers.IO) {
                     val raw = getSharedPreferences("habitline_store", MODE_PRIVATE).getString("habitline_store_json", null)
-                    checkNotNull(raw) { "No legacy JSON found." }
+                    checkNotNull(raw)
                     checkNotNull(contentResolver.openOutputStream(uri)).bufferedWriter(Charsets.UTF_8).use { it.write(raw) }
                 }
-                Toast.makeText(this@MainActivity, "Recovery copy saved", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@MainActivity, R.string.recovery_saved, Toast.LENGTH_LONG).show()
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
-                Toast.makeText(this@MainActivity, "Could not save the recovery copy", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@MainActivity, R.string.recovery_save_failed, Toast.LENGTH_LONG).show()
             }
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        model = ViewModelProvider(this)[MainViewModel::class.java]
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        val adapter = HabitAdapter(
-            onToggle = { habit, state ->
-                mutate { repo.setCompleted(habit.id, state.today, !state.isDone(habit.id)) }
-            },
-            onDelete = { habit ->
-                MaterialAlertDialogBuilder(this)
-                    .setTitle(R.string.delete_habit_title)
-                    .setMessage(getString(R.string.delete_habit_message, habit.name))
-                    .setNegativeButton(R.string.cancel, null)
-                    .setPositiveButton(R.string.delete) { _, _ -> mutate { repo.deleteHabit(habit.id) } }
-                    .show()
-            }
-        )
-        binding.habitList.layoutManager = LinearLayoutManager(this)
-        binding.habitList.adapter = adapter
-        binding.emptyState.visibility = View.GONE
-        binding.fabAdd.isEnabled = false
-        binding.fabAdd.setOnClickListener { showAddHabitDialog() }
-        binding.helpText.setText(R.string.local_storage_loading)
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        binding.navigation.setOnItemSelectedListener { item ->
+            tabItems.entries.firstOrNull { it.value == item.itemId }?.let {
+                if (!changingBar) model.selectTab(it.key)
+                true
+            } ?: false
+        }
+
+        val back = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() { navigateBack() }
+        }
+        onBackPressedDispatcher.addCallback(this, back)
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                try {
-                    repo.observe().collect { state ->
-                        adapter.submit(state)
-                        binding.helpText.setText(R.string.sync_limitation_notice)
-                        binding.emptyState.visibility = if (state.habits.isEmpty()) View.VISIBLE else View.GONE
-                        binding.fabAdd.isEnabled = true
+                launch {
+                    combine(model.storage, model.route, model.time, model.busy) { storage, route, time, busy ->
+                        val result = (storage as? StorageState.Ready)?.snapshot
+                        val snapshot = result?.let { if (it.today == time.toLocalDate()) it else it.copy(today = time.toLocalDate()) }
+                        if (snapshot == null) {
+                            showStorage(storage)
+                            back.isEnabled = false
+                        } else {
+                            showRoute(route)
+                            back.isEnabled = route != Tab.DASHBOARD.name
+                            renderer?.invoke(snapshot, time, busy)
+                            applyTheme(snapshot.settings.theme)
+                        }
+                    }.collect()
+                }
+                launch {
+                    model.message.collect { message ->
+                        if (!message.isNullOrBlank()) {
+                            Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).apply {
+                                if (binding.navigation.isVisible) setAnchorView(binding.navigation)
+                            }.show()
+                            model.clearMessage()
+                        }
                     }
-                } catch (error: Exception) {
-                    if (error is CancellationException) throw error
-                    binding.fabAdd.isEnabled = false
-                    binding.emptyState.visibility = View.GONE
-                    binding.helpText.setText(R.string.storage_recovery_message)
-                    MaterialAlertDialogBuilder(this@MainActivity)
-                        .setTitle(R.string.storage_recovery_title)
-                        .setMessage(R.string.storage_recovery_message)
-                        .setNeutralButton(R.string.save_original) { _, _ -> exportLegacy.launch("habitline-legacy.json") }
-                        .setPositiveButton(R.string.retry_storage) { _, _ -> recreate() }
-                        .show()
                 }
             }
         }
     }
 
-    private fun mutate(action: suspend () -> Unit) = lifecycleScope.launch {
-        try {
-            action()
-            HabitWidgetProvider.refreshAll(this@MainActivity)
-        } catch (error: Exception) {
-            if (error is CancellationException) throw error
-            Toast.makeText(this@MainActivity, error.message ?: "Could not update habit", Toast.LENGTH_LONG).show()
+    override fun onStart() {
+        model.refreshTime()
+        super.onStart()
+        ContextCompat.registerReceiver(this, timeChanges, IntentFilter().apply {
+            addAction(Intent.ACTION_TIME_TICK)
+            addAction(Intent.ACTION_DATE_CHANGED)
+            addAction(Intent.ACTION_TIME_CHANGED)
+            addAction(Intent.ACTION_TIMEZONE_CHANGED)
+        }, ContextCompat.RECEIVER_NOT_EXPORTED)
+    }
+
+    override fun onStop() {
+        unregisterReceiver(timeChanges)
+        super.onStop()
+    }
+
+    private fun showStorage(state: StorageState) {
+        val loading = state == StorageState.Loading
+        val route = if (loading) "loading" else "unavailable"
+        if (activeRoute == route) return
+        switchScreen(route, R.string.app_name, back = false)
+        binding.navigation.isVisible = false
+        val status = ScreenStorageBinding.inflate(layoutInflater, content, false)
+        content.addView(status.root)
+        status.message.setText(if (loading) R.string.local_storage_loading else R.string.storage_recovery_message)
+        status.loadingIndicator.isVisible = loading
+        status.retry.isVisible = !loading
+        status.retry.setOnClickListener { model.load() }
+        status.export.isVisible = !loading && getSharedPreferences("habitline_store", MODE_PRIVATE).contains("habitline_store_json")
+        status.export.setOnClickListener { exportLegacy.launch("habitline-legacy.json") }
+    }
+
+    private fun showRoute(route: String) {
+        if (activeRoute == route) return
+        val tab = Tab.entries.firstOrNull { it.name == route }
+        val title = when (tab) {
+            Tab.DASHBOARD -> R.string.app_name
+            Tab.HABITS -> R.string.habits
+            Tab.CALENDAR -> R.string.calendar
+            Tab.PROFILE -> R.string.profile
+            null -> if (route.startsWith("detail/")) R.string.habit_detail
+                else if (model.editor?.getBoolean("editing") == true) R.string.edit_habit else R.string.new_habit_title
+        }
+        switchScreen(route, title, back = tab == null)
+        binding.navigation.isVisible = tab != null
+        if (tab != null) {
+            changingBar = true
+            binding.navigation.selectedItemId = tabItems.getValue(tab)
+            changingBar = false
+        }
+        renderer = when (tab) {
+            Tab.DASHBOARD -> dashboardScreen()
+            Tab.HABITS -> habitsScreen()
+            Tab.CALENDAR -> calendarScreen()
+            Tab.PROFILE -> profileScreen()
+            null -> if (route.startsWith("detail/")) detailScreen(route.substringAfter('/')) else editorScreen()
         }
     }
 
-    private fun showAddHabitDialog() {
-        val view = layoutInflater.inflate(R.layout.dialog_add_habit, null)
-        val nameInput = view.findViewById<TextInputEditText>(R.id.input_name)
-        val pointsInput = view.findViewById<TextInputEditText>(R.id.input_points)
-        val icons = view.findViewById<Spinner>(R.id.input_icon)
-        icons.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, listOf("⭐", "📚", "💪", "🧘", "💧", "🏃", "🎯", "🛌"))
-        val dialog = MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.new_habit_title).setView(view)
-            .setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.create, null).create()
-        dialog.setOnShowListener {
-            dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val name = nameInput.text?.toString()?.trim().orEmpty()
-                val points = pointsInput.text?.toString()?.toIntOrNull()
-                if (name.isEmpty()) nameInput.error = "Enter a habit name"
-                else if (points == null || points < 0) pointsInput.error = "Enter nonnegative whole points"
-                else {
-                    val icon = icons.selectedItem.toString()
-                    mutate { repo.addHabit(name, icon, points) }
-                    dialog.dismiss()
-                }
+    private fun switchScreen(route: String, title: Int, back: Boolean) {
+        WindowInsetsControllerCompat(window, binding.root).hide(WindowInsetsCompat.Type.ime())
+        content.removeAllViews()
+        renderer = null
+        activeRoute = route
+        binding.toolbar.setTitle(title)
+        if (back) {
+            binding.toolbar.setNavigationIcon(R.drawable.ic_back)
+            binding.toolbar.setNavigationContentDescription(R.string.navigate_back)
+            binding.toolbar.setNavigationIconTint(getColor(R.color.app_text))
+            binding.toolbar.setNavigationOnClickListener { navigateBack() }
+        } else binding.toolbar.navigationIcon = null
+    }
+
+    private fun navigateBack() {
+        if (model.busy.value) return
+        when {
+            model.route.value == "editor" -> {
+                if (model.editor?.getBoolean("dirty") != true) model.closeEditor()
+                else MaterialAlertDialogBuilder(this)
+                    .setTitle(R.string.discard_changes)
+                    .setNegativeButton(R.string.keep_editing, null)
+                    .setPositiveButton(R.string.discard) { _, _ -> model.closeEditor() }
+                    .show()
             }
+            model.route.value.startsWith("detail/") -> model.closeDetail()
+            else -> model.selectTab(Tab.DASHBOARD)
         }
-        dialog.show()
-    }
-}
-
-private class HabitAdapter(
-    val onToggle: (LocalHabit, TrackerSnapshot) -> Unit,
-    val onDelete: (LocalHabit) -> Unit
-) : RecyclerView.Adapter<HabitAdapter.VH>() {
-    private var state: TrackerSnapshot? = null
-    private val pointFormat = NumberFormat.getNumberInstance().apply { maximumFractionDigits = 340 }
-
-    fun submit(value: TrackerSnapshot) {
-        state = value
-        notifyDataSetChanged()
     }
 
-    class VH(val binding: ItemHabitBinding) : RecyclerView.ViewHolder(binding.root)
+    private fun applyTheme(theme: ThemeChoice) {
+        val mode = when (theme) {
+            ThemeChoice.SYSTEM -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+            ThemeChoice.LIGHT -> AppCompatDelegate.MODE_NIGHT_NO
+            ThemeChoice.DARK -> AppCompatDelegate.MODE_NIGHT_YES
+        }
+        if (delegate.localNightMode != mode) delegate.localNightMode = mode
+    }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(
-        ItemHabitBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+    private val tabItems = mapOf(
+        Tab.DASHBOARD to R.id.nav_dashboard,
+        Tab.HABITS to R.id.nav_habits,
+        Tab.CALENDAR to R.id.nav_calendar,
+        Tab.PROFILE to R.id.nav_profile
     )
-
-    override fun onBindViewHolder(holder: VH, position: Int) {
-        val snapshot = requireNotNull(state)
-        val habit = snapshot.habits[position]
-        val schedule = snapshot.schedule(habit.id)
-        val completed = snapshot.isDone(habit.id)
-        with(holder.binding) {
-            habitName.text = "${habit.icon}  ${habit.name}"
-            val points = pointFormat.format(schedule?.points ?: 0.0)
-            habitMeta.text = root.context.getString(R.string.habit_meta_decimal, points, snapshot.streak(habit.id))
-            checkButton.isSelected = completed
-            checkButton.isEnabled = completed || schedule.scheduledOn(snapshot.today)
-            checkButton.setImageResource(if (completed) R.drawable.ic_check_filled else R.drawable.ic_check_outline)
-            checkButton.setContentDescription(root.context.getString(if (completed) R.string.undo_complete else R.string.toggle_complete))
-            checkButton.setOnClickListener { onToggle(habit, snapshot) }
-            root.setOnLongClickListener { onDelete(habit); true }
-        }
-    }
-
-    override fun getItemCount() = state?.habits?.size ?: 0
 }

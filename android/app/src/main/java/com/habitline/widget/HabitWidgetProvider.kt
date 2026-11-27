@@ -75,8 +75,13 @@ class HabitWidgetProvider : AppWidgetProvider() {
             }
             val done = state.isDone(habit.id)
             val streak = state.streak(habit.id)
+            val archived = state.latestSchedule(habit.id)?.archived == true
             views.setTextViewText(R.id.widget_habit_name, "${habit.icon}  ${habit.name}")
-            views.setTextViewText(R.id.widget_streak, if (streak > 0) context.getString(R.string.widget_streak_format, streak) else context.getString(R.string.widget_no_streak))
+            views.setTextViewText(R.id.widget_streak, when {
+                archived -> context.getString(R.string.archived)
+                streak > 0 -> context.getString(R.string.widget_streak_format, streak)
+                else -> context.getString(R.string.widget_no_streak)
+            })
             views.setImageViewResource(R.id.widget_check, if (done) R.drawable.ic_check_filled else R.drawable.ic_check_outline)
             for ((i, dot) in dots.withIndex()) {
                 val day = state.today.minusDays((dots.lastIndex - i).toLong())
@@ -88,7 +93,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
                     .appendPath(widget.toString()).appendPath(habit.id).appendPath(state.today.toString()).appendPath((!done).toString()).build())
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widget)
                 .putExtra("habit", habit.id).putExtra("day", state.today.toString()).putExtra("desired", !done)
-            val enabled = done || state.schedule(habit.id).scheduledOn(state.today)
+            val enabled = !archived && (done || state.schedule(habit.id).scheduledOn(state.today))
             views.setOnClickPendingIntent(R.id.widget_check, if (enabled) PendingIntent.getBroadcast(context, widget, toggle, FLAGS) else null)
             views.setOnClickPendingIntent(R.id.widget_root, PendingIntent.getActivity(context, widget, Intent(context, MainActivity::class.java), FLAGS))
             return views

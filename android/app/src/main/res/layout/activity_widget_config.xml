@@ -3,14 +3,14 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/ink_500"
+    android:background="@color/app_background"
     android:padding="20dp">
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/widget_config_title"
-        android:textColor="@color/ink_50"
+        android:textColor="@color/app_text"
         android:textSize="20sp"
         android:textStyle="bold"
         android:paddingBottom="4dp" />
@@ -19,7 +19,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/widget_config_subtitle"
-        android:textColor="@color/ink_50_60"
+        android:textColor="@color/app_muted"
         android:textSize="13sp"
         android:paddingBottom="16dp" />
 
@@ -37,15 +37,14 @@
         android:layout_height="wrap_content"
         android:visibility="gone"
         android:text="@string/empty_habits_message"
-        android:textColor="@color/ink_50_60"
+        android:textColor="@color/app_muted"
         android:gravity="center"
         android:padding="24dp" />
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/openAppButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/open_app_to_add_habit"
-        android:backgroundTint="@color/accent_amber" />
+        android:text="@string/open_app_to_add_habit" />
 
 </LinearLayout>

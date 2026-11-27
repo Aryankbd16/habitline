@@ -32,7 +32,8 @@ class WidgetConfigActivity : AppCompatActivity() {
         val repo = HabitRepository(this)
         lifecycleScope.launch {
             try {
-                val habits = repo.snapshot().habits
+                val state = repo.snapshot()
+                val habits = state.habits.filter { state.latestSchedule(it.id)?.archived == false }
                 binding.emptyMessage.visibility = if (habits.isEmpty()) View.VISIBLE else View.GONE
                 binding.habitListView.adapter = ArrayAdapter(this@WidgetConfigActivity, android.R.layout.simple_list_item_1, habits.map { "${it.icon}  ${it.name}" })
                 binding.habitListView.setOnItemClickListener { _, _, position, _ ->

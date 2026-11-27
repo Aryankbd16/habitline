@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="app_background">#161411</color>
+    <color name="app_surface">#211D18</color>
+    <color name="app_text">#F9F2E6</color>
+    <color name="app_muted">#C9BEB0</color>
+    <color name="app_outline">#41382E</color>
+    <color name="app_primary">#FAC575</color>
+    <color name="app_on_primary">#321D03</color>
+    <color name="app_error">#FFB3AD</color>
+    <color name="calendar_done">#304835</color>
+    <color name="calendar_partial">#5C431E</color>
+    <color name="calendar_scheduled">#393228</color>
+    <bool name="light_system_bars">false</bool>
+</resources>
