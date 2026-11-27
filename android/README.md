@@ -71,28 +71,21 @@ android/
 
 ## Building and running
 
-You'll need **Android Studio** (Hedgehog or newer) with the Android SDK for
-API 34 installed — Gradle will pull dependencies (AndroidX, Material
-Components) from Google's Maven repository the first time, so you'll need
-internet access for that initial sync (this is normal Android development,
-not a Phase-1 requirement being broken).
+The [Android APK workflow](../.github/workflows/android-apk.yml) builds the checked-out commit on Ubuntu with JDK 17, Gradle 8.7, API 34 and Build Tools 34.0.0. It verifies the Linux wrapper and official JAR checksums before execution. Gradle verifies its distribution SHA-256. Dependency downloads, compilation and emulation run on GitHub. [Gradle checksum reference](https://gradle.org/release-checksums/).
 
-```
-Open Android Studio
-    → File → Open → select the `android/` folder
-    → Wait for Gradle sync to finish
-    → Run ▶ on a connected device or emulator (API 26+)
-```
+An authorized push of Android or workflow changes to `habitline_checkpointBranch` starts a debug build. Find **Android APK** in the repository's Actions tab and select the run for the intended commit. Once the workflow is present on the default branch, GitHub also allows **Run workflow** with a branch selector. [GitHub manual workflow rules](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
 
-To build an installable APK directly:
+| Output | Location on runner | Download from the run |
+| --- | --- | --- |
+| Debug APK | `android/app/build/outputs/apk/debug/app-debug.apk` | `habitline-<version>-debug-<run>-<attempt>` |
+| Verification | Gradle logs, emulator logs, test and lint reports | `android-checks-<run>-<attempt>` and the job log |
+| Signed release APK | `release/habitline-release.apk` | `habitline-<version>-release-<run>-<attempt>` |
 
-```
-Build → Build Bundle(s) / APK(s) → Build APK(s)
-```
+The run summary records actual APK bytes, SHA-256 and manifest metadata. The baseline declares `com.habitline`, version `1.0-phase1` (code 1), minimum API 26 (Android 8.0). The emulator job exercises the debug APK on API 34. Check the individual job results for device evidence. A debug artifact can be available even if a later test fails.
 
-The APK will be generated under `app/build/outputs/apk/debug/`. Copy it to
-your phone (or use `adb install app-debug.apk`) to install without any app
-store.
+**Release signing.** Configure the `android-release` GitHub environment with protected refs and reviewers. Use the existing install's signing key for an in-place upgrade. Set environment secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`, and environment variable `ANDROID_SIGNING_CERT_SHA256` to the expected 64 hex digits without separators. Store the original keystore securely. Increase the app version code for each distributed update. Request release signing through the manual input or an explicitly published protected `android-v*` tag. Signing runs after the debug checks pass, verifies the actual certificate fingerprint and uploads the signed APK. [Android APK signing](https://developer.android.com/tools/apksigner).
+
+**Installation.** Download and extract the artifact ZIP, compare the APK checksum with the run summary, then open the APK from Files on the phone. Android may ask to allow this file source to install apps. With an already configured ADB connection, use `adb install -r app-debug.apk` or `adb install -r habitline-release.apk`. Hosted debug builds use disposable debug signing keys. Use a fresh emulator for these artifacts. On a phone with existing Habitline data, an update requires a matching signer. Preserve the existing installation if Android reports a signature mismatch.
 
 ### Adding the widget to your home screen
 

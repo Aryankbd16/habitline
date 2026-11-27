@@ -38,7 +38,7 @@ From the repository root, `node --test tests/stage2.test.cjs` runs the API and c
 
 ## Android and synchronization
 
-Open `android/` in Android Studio with JDK 17, Gradle and Android SDK 34. See the [widget guide](android/README.md) for installation and configuration.
+The Android project builds on a GitHub-hosted Linux runner. See the [Android build and widget guide](android/README.md) for artifacts, signing and installation, and the [APK milestone audit](PHASE5-AUDIT.md) for parity and acceptance criteria.
 
 Android still uses local SharedPreferences and has no shared account client. Future synchronization needs an Android authentication flow, offline writes with idempotent IDs, conflict resolution, stable deletion markers and widget refresh after sync. Shared rules should cover local-date boundaries, schedules and completion points before both clients exchange data.
 

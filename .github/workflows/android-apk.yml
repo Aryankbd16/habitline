@@ -1,0 +1,170 @@
+name: Android APK
+
+on:
+  push:
+    branches: [habitline_checkpointBranch]
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-apk.yml'
+      - '.gitattributes'
+    tags: ['android-v*']
+  workflow_dispatch:
+    inputs:
+      signed_release:
+        description: Build a signed release after verification
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      BUILD_TOOLS: 34.0.0
+    outputs:
+      version: ${{ steps.inspect.outputs.version }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Verify Gradle bootstrap and select JDK 17
+        working-directory: android
+        run: |
+          echo 'cb0da6751c2b753a16ac168bb354870ebb1e162e9083f116729cec9c781156b8  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check
+          echo 'bf2ca3f9d7c42b831380b47ab9e7594ddc33054b3e09253a0c4862353d5d604b  gradlew' | sha256sum --check
+          grep -Fx 'distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip' gradle/wrapper/gradle-wrapper.properties
+          grep -Fx 'distributionSha256Sum=544c35d6bd849ae8a5ed0bcea39ba677dc40f49df7d1835561582da2009b961d' gradle/wrapper/gradle-wrapper.properties
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
+
+      - name: Install build packages on runner
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-34' "build-tools;$BUILD_TOOLS" 'platform-tools'
+          java -version
+          android/gradlew --version
+
+      - name: Assemble debug APK
+        working-directory: android
+        run: |
+          ./gradlew --no-daemon --stacktrace :app:assembleDebug 2>&1 | tee assemble.log
+
+      - name: Verify signature and read packaged manifest
+        id: inspect
+        run: |
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          sdk="$ANDROID_HOME/build-tools/$BUILD_TOOLS"
+          "$sdk/apksigner" verify --verbose --print-certs "$apk"
+          "$sdk/aapt" dump badging "$apk" > android/debug-manifest.log
+          grep -F "package: name='com.habitline'" android/debug-manifest.log
+          grep -Fx "sdkVersion:'26'" android/debug-manifest.log
+          version=$(sed -n "s/^package: .*versionName='\([^']*\)'.*/\1/p" android/debug-manifest.log)
+          [[ "$version" =~ ^[a-zA-Z0-9._+-]+$ ]]
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          {
+            head -n 3 android/debug-manifest.log
+            stat --printf='%s bytes\n' "$apk"
+            sha256sum "$apk"
+            echo "Commit $GITHUB_SHA"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload packaged debug APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: habitline-${{ steps.inspect.outputs.version }}-debug-${{ github.run_id }}-${{ github.run_attempt }}
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Run offline prototype smoke test on API 34
+        run: bash android/ci/emulator-smoke.sh 2>&1 | tee android/emulator.log
+
+      - name: Run Android unit tests and lint
+        working-directory: android
+        run: |
+          ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:lintDebug 2>&1 | tee checks.log
+
+      - name: Build unsigned release candidate
+        if: startsWith(github.ref, 'refs/tags/android-v') || inputs.signed_release
+        working-directory: android
+        run: ./gradlew --no-daemon --stacktrace :app:assembleRelease 2>&1 | tee release.log
+
+      - name: Stage release candidate for signing
+        if: startsWith(github.ref, 'refs/tags/android-v') || inputs.signed_release
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: unsigned-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Preserve logs and test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: android-checks-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            android/*.log
+            android/app/build/reports/
+            android/app/build/test-results/
+          if-no-files-found: warn
+
+  sign:
+    if: startsWith(github.ref, 'refs/tags/android-v') || inputs.signed_release
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: android-release
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: unsigned-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: candidate
+
+      - name: Prepare signing tools
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;34.0.0"'
+
+      - name: Sign and verify release APK
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          CERT_SHA256: ${{ vars.ANDROID_SIGNING_CERT_SHA256 }}
+        run: |
+          : "${KEYSTORE_BASE64:?Missing signing keystore}" "${KEY_ALIAS:?Missing key alias}"
+          : "${STORE_PASSWORD:?Missing store password}" "${KEY_PASSWORD:?Missing key password}"
+          [[ "$CERT_SHA256" =~ ^[A-Fa-f0-9]{64}$ ]]
+          umask 077
+          keystore=$(mktemp "$RUNNER_TEMP/habitline.XXXXXX")
+          trap 'rm -f "$keystore"' EXIT
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          sdk="$ANDROID_HOME/build-tools/34.0.0"
+          mkdir -p release
+          apk=release/habitline-release.apk
+          "$sdk/zipalign" -c 4 candidate/app-release-unsigned.apk
+          "$sdk/apksigner" sign --ks "$keystore" --ks-key-alias "$KEY_ALIAS" --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD --out "$apk" candidate/app-release-unsigned.apk
+          "$sdk/apksigner" verify --verbose --print-certs "$apk" > signature.log
+          grep -Fxi "Signer #1 certificate SHA-256 digest: $CERT_SHA256" signature.log
+          "$sdk/aapt" dump badging "$apk" > manifest.log
+          grep -F "package: name='com.habitline'" manifest.log
+          grep -Fx "sdkVersion:'26'" manifest.log
+          {
+            head -n 3 manifest.log
+            stat --printf='%s bytes\n' "$apk"
+            sha256sum "$apk"
+            cat signature.log
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload verified signed APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: habitline-${{ needs.build.outputs.version }}-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release/habitline-release.apk
+          if-no-files-found: error

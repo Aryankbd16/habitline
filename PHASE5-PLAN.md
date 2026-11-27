@@ -1,6 +1,6 @@
 # Habitline Phase 5 plan
 
-**Status** — Architecture approved. This revision defines the Checkpoint A prerequisites, mandatory rule parity, and local backup and restore. Provisioning, the rollback checkpoint, and the baseline build are pending.
+**Current implementation brief.** The Android APK milestone includes paired LAN sync and bidirectional file transfer. Hosted Android builds replace the earlier local Studio provisioning proposal. The [current audit and acceptance plan](PHASE5-AUDIT.md) governs the A–G sequence. The original design notes below preserve the earlier investigation and parity rules.
 
 ## Current Android implementation
 
