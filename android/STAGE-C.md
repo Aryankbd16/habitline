@@ -11,9 +11,9 @@ The Stage C app version is `1.2-offline`, code `3`, with package `com.habitline`
 | Checkpoint | Delivered | Local verification |
 | --- | --- | --- |
 | C1 | Jetpack ViewModel, observable Room state, native navigation, recovery states and the Today dashboard | Kotlin source and shared progress rules |
-| C2 | Habit details, creation and editing, built-in and custom categories, start date, schedule, points, priority, icon, archive, restore, deletion and contextual relationships | JVM validation, schedule cases and hosted Room instrumentation passed on `e4da6fb`. |
-| C3 | Monday-start calendar, daily history, monthly navigation, profile name, profession and appearance | Calendar and streak tests passed. Room and the hosted emulator verified profile persistence on `e4da6fb`. |
-| C4 | Material layouts and theme palettes, accessibility labels, a native offline smoke test and hosted diagnostics | Build and emulator checks passed on `e4da6fb`. The lint fix requires a hosted rerun. |
+| C2 | Habit details, creation and editing, built-in and custom categories, start date, schedule, points, priority, icon, archive, restore, deletion and contextual relationships | JVM validation, schedule cases and hosted Room instrumentation passed on `e7b60d4`. |
+| C3 | Monday-start calendar, daily history, monthly navigation, profile name, profession and appearance | Calendar and streak tests passed. Room and the hosted emulator verified profile persistence on `e7b60d4`. |
+| C4 | Material layouts and theme palettes, accessibility labels, a native offline smoke test and hosted diagnostics | The APK build, emulator tests and lint passed on `e7b60d4`. |
 
 ## Screens and behavior
 
@@ -33,18 +33,20 @@ The activity renders XML screens from a lifecycle-aware ViewModel. Room provides
 
 ## Verification
 
-The first Stage C run built and installed `e4da6fb`. The API 34 emulator passed the prototype upgrade and clean-install UI scenarios with airplane mode enabled, Wi‑Fi and mobile data disabled. The installed debug APK did not request the Android Internet permission. [Stage C run 46019079212](https://github.com/Aryankbd16/habitline/actions/runs/46019079212).
+The first Stage C run built and installed `e4da6fb`. The API 34 emulator passed, and lint flagged an API 27 navigation-bar theme attribute used with minimum API 26. Commit `e7b60d4` switched both activities to the API 26-compatible AndroidX window controller. [First Stage C run](https://github.com/Aryankbd16/habitline/actions/runs/46019079212), [AndroidX window controller](https://developer.android.com/reference/androidx/core/view/WindowInsetsControllerCompat#setAppearanceLightNavigationBars(boolean)).
+
+The rerun built and installed `e7b60d429c5690a3c2795337afc668e402c008f1` and passed. The API 34 emulator exercised the prototype upgrade and clean-install UI with airplane mode enabled, Wi-Fi and mobile data disabled. The packaged manifest identifies `com.habitline` with minimum API 26 and omits the Android Internet permission. [Successful Stage C run](https://github.com/Aryankbd16/habitline/actions/runs/46022806089).
 
 | Check | Stage C result |
 | --- | --- |
 | Kotlin JVM | **7 passed** both locally with Kotlin 1.9.24 and JUnit 4.13.2 and under hosted Gradle. Includes both baseline tests and five Stage C tests. |
 | Android source and resources | 18 app and instrumentation Kotlin files type-checked with API 34, pinned library binaries and temporary XML-derived binding types. Android resources compiled with AAPT2. All 24 DAO queries prepared successfully against the pinned schema in SQLite. These checks do not exercise Gradle view binding generation or app startup. |
 | Workflow scripts | `actionlint` 1.7.7, Bash syntax and Python syntax passed. |
-| Room instrumentation and legacy migration | **7 passed** on API 34. The XML report records zero failures, errors and skips. The signed prototype-to-Stage C upgrade preserved the original preferences byte for byte. |
+| Room instrumentation and legacy migration | **7 passed** on API 34. The XML report records zero failures, errors and skips. The signed prototype-to-Stage C upgrade preserved the original preferences byte for byte. The runner-generated Room v1 schema matched the pinned schema. |
 | Emulator | **Passed** on API 34. The installed APK exercised blank-name validation, rotation, a selected weekday schedule, mark and undo, progress, month navigation, history after archive, process restart, editing, restore, confirmed deletion and profile persistence. |
-| Android lint | Run 46019079212 found 1 error and 52 warnings. The error was an API 27 theme attribute used in the API 26 theme. Both activities now set navigation-bar contrast through AndroidX's API 26-compatible window controller. The fix awaits hosted verification. [AndroidX window controller](https://developer.android.com/reference/androidx/core/view/WindowInsetsControllerCompat#setAppearanceLightNavigationBars(boolean)). |
+| Android lint | **Passed** on `e7b60d4` with 0 errors and 52 warnings. [Hosted verification reports](https://github.com/Aryankbd16/habitline/actions/runs/46022806089/artifacts/15212010920). |
 | Web and backend | **8 Node tests passed**, including the existing Phase 2–4 suites and shared schedule fixture. **Headless Edge passed** and the **web production build passed** with the existing large-chunk warning. The regression suites used disposable SQLite databases. |
-| GitHub Actions APK | `habitline-1.2-offline-debug-46019079212-1`, 6,351,663 APK bytes. APK SHA-256 `b371a2e0a004b7c0e0fc73228a0711a589fce7ab12ce7884ab617c42ad4607a6`. The local download matched GitHub's ZIP digest and passed APK ZIP integrity. [Debug APK artifact](https://github.com/Aryankbd16/habitline/actions/runs/46019079212/artifacts/15206797855), [reports](https://github.com/Aryankbd16/habitline/actions/runs/46019079212/artifacts/15208296610). |
+| GitHub Actions APK | `habitline-1.2-offline-debug-46022806089-1`, 6,351,703 APK bytes. APK SHA-256 `b56f48f53a9f54cab80a7fdc338eaf1d1620b03d8ddbe7edece026c708fc58a0`. The local download matched GitHub's ZIP digest and passed APK ZIP integrity. [Verified debug APK artifact](https://github.com/Aryankbd16/habitline/actions/runs/46022806089/artifacts/15208448647). |
 
 ## Files
 
@@ -60,11 +62,9 @@ The first Stage C run built and installed `e4da6fb`. The API 34 emulator passed 
 
 ## Acceptance and later stages
 
-Stage C still needs a successful hosted run for the navigation-bar compatibility fix. Physical-device operation, launcher widget behavior and API 26 runtime coverage still need device validation. Hosted debug keys are disposable, so an in-place update on a phone requires the certificate that signed its existing installation.
+Stage C passed hosted verification. The next device checks are a physical phone, API 26 at runtime and launcher-widget behavior. Hosted debug keys are disposable, so an in-place update on a phone requires the certificate that signed its existing installation.
 
 - **Stage D** covers analytics, insights, goals, XP and levels, milestones, challenges and social feature parity.
 - **Stage E** covers backup/import, reminder delivery and expanded Android widget testing.
 - **Stage F** covers authenticated local Wi-Fi pairing and synchronization.
 - **Stage G** covers production signing, distribution and full device validation.
-
-After push approval for the fix, rerun the workflow and record its lint, emulator and APK results.
