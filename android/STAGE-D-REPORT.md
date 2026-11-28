@@ -23,7 +23,7 @@ An idempotent, per-profile backfill uses Stage C's ledger and surviving completi
 
 ## Verification
 
-GitHub Actions run 46116360549 passed on approved commit `8ffcbccd8de25088dc6e92e5b51789bf729a05cc`. The emulator used Android 14 (API 34) in airplane mode with Wi-Fi and mobile data disabled. [Successful hosted run](https://github.com/Aryankbd16/habitline/actions/runs/46116360549).
+GitHub Actions run 46117810892 passed on approved commit `d7025e4bc474d61c819e74f8b838e205f4058f82` on its second attempt. Maven Central rate-limited dependency resolution on the first attempt. The successful emulator run used Android 14 (API 34) in airplane mode with Wi-Fi and mobile data disabled. [Successful hosted attempt](https://github.com/Aryankbd16/habitline/actions/runs/46117810892/attempts/2).
 
 | Check | Local outcome | Hosted result |
 | --- | --- | --- |
@@ -31,9 +31,9 @@ GitHub Actions run 46116360549 passed on approved commit `8ffcbccd8de25088dc6e92
 | Web and backend | **11 passed** across Phase 2–4 regressions and shared Android/web fixtures. The fixture tests call the real web reporting functions and backend goal, challenge and level logic. | The dependency-free schedule, analytics and insight fixtures passed in the Android job. |
 | Edge browser and production build | **Passed**. Vite reported the existing bundle-size warning. | Local regressions use disposable databases. |
 | Android source and resources | **26 Kotlin files type-checked** against API 34 and pinned Android dependencies with temporary XML-derived bindings. AAPT2 compiled the resources. **36 DAO queries** were validated with an in-memory SQLite database generated from the pinned Stage C schema. | The APK assembled and passed manifest and signature checks. Generated Room v1 schema matched the pinned Stage C schema. |
-| Workflow | **Passed** actionlint, Bash syntax and parsing of the three Python smoke scripts. | **Lint passed**, with 0 errors and 52 warnings. The calendar formatting finding was resolved. Lint found one new chart constructor warning, which has a local fix awaiting a hosted rerun. |
+| Workflow | **Passed** actionlint, Bash syntax and parsing of the three Python smoke scripts. | **Lint passed**, with 0 errors and 51 warnings. Comparing the hosted XML reports confirmed the `ProgressChart` `ViewConstructor` count fell from one to zero. The calendar formatting finding also remains resolved. |
 | Room instrumentation and emulator | The Stage C tests remain in the suite. Two new Room tests and an offline UI upgrade test are staged. | **9 Room tests passed** with zero failures, errors or skips. The prototype upgrade, Stage C UI regression and actual Stage C-to-D upgrade with Stage D offline UI passed. |
-| APK | Download integrity matched GitHub's archive digest. The APK ZIP contains the compiled manifest, resources and DEX. | `habitline-1.3-progress-debug-46116360549-1` is 6,489,559 bytes. APK SHA-256 `1a39e4e14dcc1a40adbf4a7a5f19dcca3589f682e2ceaf3280b0e925c61397ce`. [APK artifact](https://github.com/Aryankbd16/habitline/actions/runs/46116360549/artifacts/15251738107), [verification reports](https://github.com/Aryankbd16/habitline/actions/runs/46116360549/artifacts/15252182020). |
+| APK | Download integrity matched GitHub's archive digest. The APK ZIP contains the compiled manifest, resources and DEX. | `habitline-1.3-progress-debug-46117810892-2` is 6,489,703 bytes. APK SHA-256 `6c0e52a299562b297996744a57021f038bbc82ebf9e5761e5e494e3d11160255`. [APK artifact](https://github.com/Aryankbd16/habitline/actions/runs/46117810892/artifacts/15251759281), [verification reports](https://github.com/Aryankbd16/habitline/actions/runs/46117810892/artifacts/15252294296). |
 
 The hosted workflow builds the verified Stage C APK with the same runner debug certificate as Stage D so the emulator can perform an in-place upgrade. It preserves the existing prototype upgrade, Stage C UI regression, APK upload, reports and signing gates. [Hosted workflow](https://github.com/Aryankbd16/habitline/actions/workflows/android-apk.yml).
 
@@ -42,6 +42,6 @@ The hosted workflow builds the verified Stage C APK with the same runner debug c
 - The web goal query uses the goal's archive date. Android also applies each currently archived habit's archive date, as the Stage D brief requires. The [audit](STAGE-D-AUDIT.md) records the case where those rules differ.
 - Shared challenges and social integrations depend on Stage F's authenticated LAN transport, pairing and account reconciliation. The local Progress screens operate independently.
 - Historical streak and habit-count awards are reconstructed from surviving marks. The old ledger can recover reversed XP, historical level crossings and tracked-completion badges.
-- The approved Stage D build passed the hosted functional, persistence, packaging and lint gates. The local follow-up gives the progress chart a standard Android `Context` constructor and awaits hosted verification of the new-warning cleanup. Physical devices and launcher behavior need separate device coverage.
+- The approved Stage D build passed the hosted functional, persistence, packaging and lint gates. The hosted report confirms the chart constructor warning is resolved. Physical devices and launcher behavior need separate device coverage.
 
 See the [implementation plan](STAGE-D-PLAN.md) and the [rule and connectivity audit](STAGE-D-AUDIT.md).
