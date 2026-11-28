@@ -71,7 +71,6 @@
     <string name="daily">Daily</string>
     <string name="selected_weekdays">Selected weekdays</string>
     <string name="start_date">Starts %1$s</string>
-    <string name="points_display">%1$s points per completion</string>
     <string name="recent_history">Recent completions</string>
     <string name="save">Save</string>
     <string name="invalid_points">Enter points as a number.</string>
@@ -115,4 +114,5 @@
     <string name="choose_relationship_type">Choose a connection type</string>
     <string name="remove_relationship">Remove connection with %1$s?</string>
     <string name="remove">Remove</string>
+    <string name="calendar_cell_status">%1$s\n%2$s</string>
 </resources>

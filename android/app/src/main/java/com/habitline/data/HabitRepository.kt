@@ -20,6 +20,7 @@ class HabitRepository(
     private val zone: () -> ZoneId = { ZoneId.systemDefault() }
 ) {
     private val dao = db.tracker()
+    private val progress = db.progress()
     private val gson = Gson()
     private fun localDate(instant: Instant) = instant.atZone(zone()).toLocalDate()
     private fun profile() = dao.migration()?.profileId ?: migratePreferences(
@@ -28,6 +29,12 @@ class HabitRepository(
 
     suspend fun snapshot() = db.withTransaction {
         val owner = profile()
+        val today = localDate(clock.instant())
+        backfillAwards(owner, today)
+        readSnapshot(owner, today)
+    }
+
+    private fun readSnapshot(owner: String, today: LocalDate): TrackerSnapshot {
         val preferences = dao.preferences(owner).associate { it.key to it.value }
         val name = requireNotNull(dao.profile(owner)).displayName
         val settings = LocalSettings(
@@ -35,9 +42,11 @@ class HabitRepository(
             profession = preferences[PROFESSION].orEmpty(),
             theme = ThemeChoice.entries.firstOrNull { it.name == preferences[THEME] } ?: ThemeChoice.SYSTEM
         )
-        TrackerSnapshot(
+        return TrackerSnapshot(
             dao.habits(), dao.revisions(), dao.completions(),
-            dao.widgets().associate { it.widgetId to it.habitId }, localDate(clock.instant()), settings, dao.links()
+            dao.widgets().associate { it.widgetId to it.habitId }, today, settings, dao.links(),
+            ProgressRecords(progress.goals(owner), progress.goalHabits(owner), progress.challenges(owner),
+                progress.challengeHabits(owner), progress.events(owner), progress.milestones(owner))
         )
     }
 
@@ -60,7 +69,7 @@ class HabitRepository(
         val stamp = now.toString()
         val habit = LocalHabit(
             id, owner, values.name, values.icon, stamp, stamp,
-            values.description, values.category, values.priority
+            values.description, values.category, values.priority, xpValue = values.xpValue
         )
         val revision = ScheduleRevision(
             uuid(), id, minOf(localDate(now), values.startDate).toString(), values.startDate.toString(),
@@ -80,7 +89,7 @@ class HabitRepository(
         val now = clock.instant()
         val updated = old.copy(
             name = values.name, description = values.description, category = values.category,
-            icon = values.icon, priority = values.priority
+            icon = values.icon, priority = values.priority, xpValue = values.xpValue
         )
         val revision = schedule.copy(
             startDate = values.startDate.toString(), weekdayMask = values.weekdayMask, points = values.points
@@ -154,6 +163,99 @@ class HabitRepository(
         record(owner, "habit_relationship", id, "delete", mapOf("id" to id))
     }
 
+    suspend fun saveGoal(id: String, editing: Boolean, input: GoalInput) = db.withTransaction {
+        input.validate()
+        val owner = profile()
+        val previous = progress.goal(owner, id)
+        if (!editing && previous != null) return@withTransaction
+        require(!editing || previous != null) { "This goal was deleted." }
+        validateLinks(owner, input.habitIds)
+        val row = LocalGoal(
+            id, owner, input.title.trim(), input.description.trim(), input.target,
+            input.start.toString(), input.end?.toString(), previous?.archivedOn
+        )
+        if (previous == null) progress.insert(row) else progress.update(row)
+        val links = input.habitIds.map { GoalHabit(eventId("goal/$id/$it"), id, it) }
+        progress.clearGoalLinks(id)
+        progress.insert(links)
+        val rules = MilestoneRules(readSnapshot(owner, localDate(clock.instant())))
+        earn(owner, listOfNotNull(rules.goal(row)))
+        record(owner, "goal", id, if (editing) "update" else "create", mapOf("goal" to row, "links" to links))
+    }
+
+    suspend fun saveChallenge(id: String, editing: Boolean, input: ChallengeInput) = db.withTransaction {
+        val owner = profile()
+        val previous = progress.challenge(owner, id)
+        if (!editing && previous != null) return@withTransaction
+        require(!editing || previous != null) { "This challenge was deleted." }
+        require(previous == null || previous.kind == input.mode.key) { "The progress measure is fixed for an existing challenge." }
+        val hadNoLinks = previous != null && progress.challengeHabits(owner).none { it.challengeId == id }
+        input.validate(allowMissingLinks = hadNoLinks)
+        validateLinks(owner, input.habitIds)
+        val row = PersonalChallenge(
+            id, owner, input.title.trim(), input.description.trim(), input.mode.key, input.target,
+            input.start.toString(), input.end.toString(), previous?.archivedOn
+        )
+        if (previous == null) progress.insert(row) else progress.update(row)
+        val links = input.habitIds.map { ChallengeHabit(eventId("challenge/$id/$it"), id, it) }
+        progress.clearChallengeLinks(id)
+        progress.insertChallenges(links)
+        val rules = MilestoneRules(readSnapshot(owner, localDate(clock.instant())))
+        earn(owner, listOfNotNull(rules.challenge(row)))
+        record(owner, "challenge", id, if (editing) "update" else "create", mapOf("challenge" to row, "links" to links))
+    }
+
+    suspend fun archiveTarget(id: String, challenge: Boolean, archived: Boolean) = db.withTransaction {
+        val owner = profile()
+        val today = localDate(clock.instant())
+        val operation = if (archived) "archive" else "restore"
+        if (challenge) {
+            val old = progress.challenge(owner, id) ?: return@withTransaction
+            if ((old.archivedOn != null) == archived) return@withTransaction
+            val row = old.copy(archivedOn = today.toString().takeIf { archived })
+            progress.update(row)
+            earn(owner, listOfNotNull(MilestoneRules(readSnapshot(owner, today)).challenge(row)))
+            record(owner, "challenge", id, operation, row)
+        } else {
+            val old = progress.goal(owner, id) ?: return@withTransaction
+            if ((old.archivedOn != null) == archived) return@withTransaction
+            val row = old.copy(archivedOn = today.toString().takeIf { archived })
+            progress.update(row)
+            earn(owner, listOfNotNull(MilestoneRules(readSnapshot(owner, today)).goal(row)))
+            record(owner, "goal", id, operation, row)
+        }
+    }
+
+    suspend fun deleteTarget(id: String, challenge: Boolean) = db.withTransaction {
+        val owner = profile()
+        val deleted = if (challenge) progress.deleteChallenge(owner, id) else progress.deleteGoal(owner, id)
+        if (deleted != 0) {
+            val entity = if (challenge) "challenge" else "goal"
+            dao.insert(Deletion(uuid(), owner, entity, id, clock.instant().toString()))
+            record(owner, entity, id, "delete", mapOf("id" to id))
+        }
+    }
+
+    private fun validateLinks(owner: String, ids: Set<String>) {
+        require(ids.all { dao.habit(it)?.profileId == owner }) { "One or more linked habits were deleted." }
+    }
+
+    private fun earn(owner: String, awards: List<Award>) {
+        if (awards.isEmpty()) return
+        progress.insertMilestones(awards.map { award ->
+            Milestone(
+                eventId("milestone/$owner/${award.kind}/${award.subject}"),
+                owner, award.kind, award.subject, award.title, award.description, award.day
+            )
+        })
+    }
+
+    private fun backfillAwards(owner: String, today: LocalDate) {
+        if (dao.preferences(owner).any { it.key == AWARDS_BACKFILLED }) return
+        earn(owner, MilestoneRules(readSnapshot(owner, today)).existingRecords())
+        dao.save(ProfilePreference(eventId("preference/$owner/$AWARDS_BACKFILLED"), owner, AWARDS_BACKFILLED, "true"))
+    }
+
     suspend fun setCompleted(id: String, day: LocalDate, desired: Boolean, widget: Int? = null) = db.withTransaction {
         val owner = profile()
         val now = clock.instant()
@@ -167,6 +269,7 @@ class HabitRepository(
         val prior = dao.completion(id, key)
         if (desired == (prior != null)) return@withTransaction
         val stamp = now.toString()
+        backfillAwards(owner, day)
         if (desired) {
             val schedule = dao.schedule(id, key)
             if (widget != null && !schedule.scheduledOn(day)) return@withTransaction
@@ -177,6 +280,7 @@ class HabitRepository(
             dao.insert(row)
             dao.insert(event)
             record(owner, "completion", row.id, "mark", mapOf("completion" to row, "event" to event))
+            earn(owner, MilestoneRules(readSnapshot(owner, day)).onMark(habit, reward))
         } else {
             undo(owner, requireNotNull(prior), stamp)
         }
@@ -185,7 +289,9 @@ class HabitRepository(
     suspend fun deleteHabit(id: String) = db.withTransaction {
         val owner = profile()
         if (dao.habit(id) == null) return@withTransaction
-        val stamp = clock.instant().toString()
+        val now = clock.instant()
+        backfillAwards(owner, localDate(now))
+        val stamp = now.toString()
         for (row in dao.habitCompletions(id)) undo(owner, row, stamp)
         dao.deleteHabit(id)
         dao.insert(Deletion(uuid(), owner, "habit", id, stamp))
@@ -220,5 +326,6 @@ class HabitRepository(
     private companion object {
         const val PROFESSION = "profession"
         const val THEME = "theme"
+        const val AWARDS_BACKFILLED = "awards-backfilled-stage-d"
     }
 }

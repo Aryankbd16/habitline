@@ -12,8 +12,8 @@ android {
         applicationId = "com.habitline"
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.2-offline"
+        versionCode = 4
+        versionName = "1.3-progress"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

@@ -6,10 +6,17 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import com.habitline.R
+import com.habitline.data.ChallengeInput
+import com.habitline.data.ChallengeMode
 import com.habitline.data.DAILY_MASK
+import com.habitline.data.GoalInput
 import com.habitline.data.HabitInput
 import com.habitline.data.HabitRepository
+import com.habitline.data.LocalGoal
 import com.habitline.data.LocalHabit
+import com.habitline.data.PersonalChallenge
+import com.habitline.data.ReportPeriod
 import com.habitline.data.LocalSettings
 import com.habitline.data.TrackerSnapshot
 import com.habitline.widget.HabitWidgetProvider
@@ -30,7 +37,9 @@ internal sealed interface StorageState {
     data class Ready(val snapshot: TrackerSnapshot) : StorageState
 }
 
-internal enum class Tab { DASHBOARD, HABITS, CALENDAR, PROFILE }
+internal enum class Tab { DASHBOARD, HABITS, CALENDAR, PROGRESS, PROFILE }
+
+internal enum class ProgressPanel { ANALYTICS, GOALS, REWARDS, CHALLENGES }
 
 internal class MainViewModel(application: Application, private val saved: SavedStateHandle) : AndroidViewModel(application) {
     private val repository = HabitRepository(application)
@@ -56,6 +65,95 @@ internal class MainViewModel(application: Application, private val saved: SavedS
         set(value) { saved["profileDraft"] = value }
     val editor: Bundle? get() = saved["editor"]
 
+    var progressPanel: ProgressPanel
+        get() = ProgressPanel.valueOf(saved.get<String>("progressPanel") ?: ProgressPanel.ANALYTICS.name)
+        set(value) { saved["progressPanel"] = value.name }
+    var reportPeriod: ReportPeriod
+        get() = ReportPeriod.valueOf(saved.get<String>("reportPeriod") ?: ReportPeriod.WEEK.name)
+        set(value) { saved["reportPeriod"] = value.name }
+    var reportOffset: Int
+        get() = saved["reportOffset"] ?: 0
+        set(value) { saved["reportOffset"] = value }
+    var reportHabit: String?
+        get() = saved["reportHabit"]
+        set(value) { saved["reportHabit"] = value }
+    val targetDraft: Bundle? get() = saved["targetDraft"]
+
+    fun openAnalytics(habit: String) {
+        reportHabit = habit
+        progressPanel = ProgressPanel.ANALYTICS
+        selectTab(Tab.PROGRESS)
+    }
+
+    fun openGoal(snapshot: TrackerSnapshot, goal: LocalGoal? = null) {
+        openTarget(
+            challenge = false, id = goal?.id, title = goal?.title, description = goal?.description,
+            target = goal?.target, start = goal?.startDate ?: snapshot.today.toString(), end = goal?.targetDate,
+            links = goal?.let { snapshot.progress.goalLinks(it.id) }.orEmpty()
+        )
+    }
+
+    fun openChallenge(snapshot: TrackerSnapshot, challenge: PersonalChallenge? = null) {
+        openTarget(
+            challenge = true, id = challenge?.id, title = challenge?.title, description = challenge?.description,
+            target = challenge?.target, start = challenge?.startDate ?: snapshot.today.toString(),
+            end = challenge?.endDate ?: snapshot.today.plusDays(6).toString(),
+            links = challenge?.let { snapshot.progress.challengeLinks(it.id) }.orEmpty(),
+            mode = challenge?.kind ?: ChallengeMode.COUNT.key
+        )
+    }
+
+    private fun openTarget(
+        challenge: Boolean, id: String?, title: String?, description: String?, target: Int?,
+        start: String, end: String?, links: Set<String>, mode: String = ChallengeMode.COUNT.key
+    ) {
+        if (operationRunning.value) return
+        saved["targetDraft"] = Bundle().apply {
+            putString("id", id ?: UUID.randomUUID().toString())
+            putBoolean("editing", id != null)
+            putBoolean("challenge", challenge)
+            putString("title", title.orEmpty())
+            putString("description", description.orEmpty())
+            putString("target", target?.toString().orEmpty())
+            putString("start", start)
+            putString("end", end)
+            putStringArrayList("links", ArrayList(links))
+            putString("mode", mode)
+        }
+        saved["route"] = "target"
+    }
+
+    fun changeTargetDraft(change: Bundle.() -> Unit) {
+        saved["targetDraft"] = Bundle(requireNotNull(targetDraft)).apply(change).apply { putBoolean("dirty", true) }
+    }
+
+    fun closeTarget() {
+        selectTab(Tab.PROGRESS)
+        saved.remove<Bundle>("targetDraft")
+    }
+
+    fun saveGoal(input: GoalInput) {
+        val draft = requireNotNull(targetDraft)
+        mutate(success = { closeTarget() }) {
+            repository.saveGoal(requireNotNull(draft.getString("id")), draft.getBoolean("editing"), input)
+        }
+    }
+
+    fun saveChallenge(input: ChallengeInput) {
+        val draft = requireNotNull(targetDraft)
+        mutate(success = { closeTarget() }) {
+            repository.saveChallenge(requireNotNull(draft.getString("id")), draft.getBoolean("editing"), input)
+        }
+    }
+
+    fun archiveTarget(id: String, challenge: Boolean, archived: Boolean) = mutate {
+        repository.archiveTarget(id, challenge, archived)
+    }
+
+    fun deleteTarget(id: String, challenge: Boolean) = mutate {
+        repository.deleteTarget(id, challenge)
+    }
+
     init { load() }
 
     fun load() {
@@ -68,6 +166,13 @@ internal class MainViewModel(application: Application, private val saved: SavedS
                     if (!operationRunning.value && route.value == "editor" && draft?.getBoolean("editing") == false &&
                         snapshot.habits.any { it.id == draft.getString("id") }
                     ) closeEditor()
+                    val previous = (storageState.value as? StorageState.Ready)?.snapshot
+                    if (previous != null) {
+                        val earned = previous.progress.milestones.mapTo(mutableSetOf()) { it.id }
+                        snapshot.progress.milestones.firstOrNull { it.id !in earned }?.let {
+                            operationMessage.value = getApplication<Application>().getString(R.string.achievement_earned, it.title)
+                        }
+                    }
                     storageState.value = StorageState.Ready(snapshot)
                 }
             } catch (error: Exception) {
@@ -100,6 +205,7 @@ internal class MainViewModel(application: Application, private val saved: SavedS
             putString("category", habit?.category ?: "General")
             putString("icon", habit?.icon ?: "⭐")
             putString("priority", habit?.priority ?: "medium")
+            putString("xp", (habit?.xpValue ?: 10).toString())
             putString("points", (schedule?.points ?: 10.0).toBigDecimal().stripTrailingZeros().toPlainString())
             putString("start", schedule?.startDate ?: snapshot.today.toString())
             putBoolean("daily", schedule == null || schedule.weekdayMask == DAILY_MASK)

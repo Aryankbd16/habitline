@@ -150,7 +150,8 @@ class MainActivity : AppCompatActivity() {
             Tab.HABITS -> R.string.habits
             Tab.CALENDAR -> R.string.calendar
             Tab.PROFILE -> R.string.profile
-            null -> if (route.startsWith("detail/")) R.string.habit_detail
+            Tab.PROGRESS -> R.string.progress_hub
+            null -> if (route == "target") targetTitle() else if (route.startsWith("detail/")) R.string.habit_detail
                 else if (model.editor?.getBoolean("editing") == true) R.string.edit_habit else R.string.new_habit_title
         }
         switchScreen(route, title, back = tab == null)
@@ -165,7 +166,12 @@ class MainActivity : AppCompatActivity() {
             Tab.HABITS -> habitsScreen()
             Tab.CALENDAR -> calendarScreen()
             Tab.PROFILE -> profileScreen()
-            null -> if (route.startsWith("detail/")) detailScreen(route.substringAfter('/')) else editorScreen()
+            Tab.PROGRESS -> progressScreen()
+            null -> when {
+                route == "target" -> targetScreen()
+                route.startsWith("detail/") -> detailScreen(route.substringAfter('/'))
+                else -> editorScreen()
+            }
         }
     }
 
@@ -194,6 +200,14 @@ class MainActivity : AppCompatActivity() {
                     .setPositiveButton(R.string.discard) { _, _ -> model.closeEditor() }
                     .show()
             }
+            model.route.value == "target" -> {
+                if (model.targetDraft?.getBoolean("dirty") != true) model.closeTarget()
+                else MaterialAlertDialogBuilder(this)
+                    .setTitle(R.string.discard_changes)
+                    .setNegativeButton(R.string.keep_editing, null)
+                    .setPositiveButton(R.string.discard) { _, _ -> model.closeTarget() }
+                    .show()
+            }
             model.route.value.startsWith("detail/") -> model.closeDetail()
             else -> model.selectTab(Tab.DASHBOARD)
         }
@@ -212,6 +226,7 @@ class MainActivity : AppCompatActivity() {
         Tab.DASHBOARD to R.id.nav_dashboard,
         Tab.HABITS to R.id.nav_habits,
         Tab.CALENDAR to R.id.nav_calendar,
+        Tab.PROGRESS to R.id.nav_progress,
         Tab.PROFILE to R.id.nav_profile
     )
 }

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="analytics_habit" type="id" />
+    <item name="analytics_range" type="id" />
+    <item name="analytics_completion" type="id" />
+    <item name="progress_add" type="id" />
+    <item name="rewards_level" type="id" />
+</resources>

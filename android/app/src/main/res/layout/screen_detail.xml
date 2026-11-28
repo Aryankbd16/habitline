@@ -124,6 +124,13 @@
             android:text="@string/edit_habit"
             android:layout_marginTop="12dp" />
         <com.google.android.material.button.MaterialButton
+            android:id="@+id/habit_analytics"
+            style="@style/Habitline.Button.Outlined"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/analytics" />
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/archive_habit"
             style="@style/Habitline.Button.Outlined"
             android:layout_width="wrap_content"

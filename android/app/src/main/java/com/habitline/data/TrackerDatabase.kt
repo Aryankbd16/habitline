@@ -31,6 +31,7 @@ import androidx.room.RoomDatabase
 )
 abstract class TrackerDatabase : RoomDatabase() {
     abstract fun tracker(): TrackerDao
+    abstract fun progress(): ProgressDao
 
     companion object {
         @Volatile private var instance: TrackerDatabase? = null

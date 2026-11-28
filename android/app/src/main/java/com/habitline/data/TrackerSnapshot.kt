@@ -7,7 +7,8 @@ import kotlin.math.roundToInt
 data class TrackerSnapshot(
     val habits: List<LocalHabit>, val schedules: List<ScheduleRevision>,
     val completions: List<HabitCompletion>, val widgets: Map<Int, String>, val today: LocalDate,
-    val settings: LocalSettings = LocalSettings(), val links: List<HabitLink> = emptyList()
+    val settings: LocalSettings = LocalSettings(), val links: List<HabitLink> = emptyList(),
+    val progress: ProgressRecords = ProgressRecords()
 ) {
     private val revisions = schedules.groupBy { it.habitId }.mapValues { (_, rows) -> rows.sortedBy { it.effectiveFrom } }
     private val byDay = completions.groupBy { it.day }.mapValues { (_, rows) -> rows.associateBy { it.habitId } }
@@ -20,6 +21,11 @@ data class TrackerSnapshot(
     }
 
     fun latestSchedule(id: String) = revisions[id]?.lastOrNull()
+
+    fun archiveStart(id: String): LocalDate? {
+        val history = revisions[id].orEmpty().takeWhile { it.effectiveFrom <= today.toString() }
+        return history.asReversed().takeWhile { it.archived }.lastOrNull()?.effectiveFrom?.let(LocalDate::parse)
+    }
 
     fun isDone(id: String, day: LocalDate = today) = day <= today && byDay[day.toString()]?.containsKey(id) == true
 

@@ -70,7 +70,9 @@ interface TrackerDao {
     @Query("""SELECT (SELECT count(*) FROM habits) + (SELECT count(*) FROM completions) +
         (SELECT count(*) FROM schedule_revisions) + (SELECT count(*) FROM profiles) +
         (SELECT count(*) FROM preferences) + (SELECT count(*) FROM widget_bindings) +
-        (SELECT count(*) FROM habit_relationships)""")
+        (SELECT count(*) FROM habit_relationships) + (SELECT count(*) FROM goals) +
+        (SELECT count(*) FROM goal_habits) + (SELECT count(*) FROM challenges) +
+        (SELECT count(*) FROM challenge_habits) + (SELECT count(*) FROM xp_events) + (SELECT count(*) FROM milestones)""")
     fun observeTracker(): Flow<Long>
 
     @Insert fun insert(profile: LocalProfile)

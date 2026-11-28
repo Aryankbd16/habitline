@@ -48,6 +48,7 @@ internal fun MainActivity.editorScreen(): ScreenRenderer {
     binding.inputDescription.setText(initial.getString("description"))
     binding.inputCategory.setText(initial.getString("category"), false)
     binding.inputIcon.setText(initial.getString("icon"))
+    binding.inputXp.setText(initial.getString("xp") ?: "10")
     binding.inputPoints.setText(initial.getString("points").orEmpty().replace('.', separator))
     binding.inputPriority.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, HabitInput.priorities.map { priorityLabel(it) })
     binding.inputPriority.setSelection(HabitInput.priorities.indexOf(initial.getString("priority")).coerceAtLeast(0))
@@ -55,7 +56,7 @@ internal fun MainActivity.editorScreen(): ScreenRenderer {
     binding.weekdayOptions.isVisible = !initial.getBoolean("daily")
     val fields = mapOf(
         "name" to binding.inputName, "description" to binding.inputDescription, "category" to binding.inputCategory,
-        "icon" to binding.inputIcon, "points" to binding.inputPoints
+        "icon" to binding.inputIcon, "points" to binding.inputPoints, "xp" to binding.inputXp
     )
     fields.forEach { (key, field) ->
         field.doAfterTextChanged { value ->
@@ -127,11 +128,16 @@ internal fun MainActivity.editorScreen(): ScreenRenderer {
             showFormError(getString(R.string.invalid_points))
             return@setOnClickListener
         }
+        val xp = wholeNumber(draft.getString("xp") ?: "10")
+        if (xp == null || xp !in 0..100) {
+            showFormError(getString(R.string.xp_invalid))
+            return@setOnClickListener
+        }
         val values = HabitInput(
             name = draft.getString("name").orEmpty(), startDate = startDate(),
             description = draft.getString("description").orEmpty(), category = draft.getString("category").orEmpty(),
             icon = draft.getString("icon").orEmpty(), priority = draft.getString("priority") ?: "medium",
-            points = points, weekdayMask = if (draft.getBoolean("daily")) DAILY_MASK else draft.getInt("weekdays")
+            points = points, xpValue = xp, weekdayMask = if (draft.getBoolean("daily")) DAILY_MASK else draft.getInt("weekdays")
         )
         try {
             val original = state?.habits?.find { it.id == draft.getString("id") }

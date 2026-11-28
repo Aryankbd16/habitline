@@ -7,6 +7,7 @@ on:
       - 'android/**'
       - 'shared/fixtures/**'
       - 'tests/phase5-schedules.test.cjs'
+      - 'tests/stage-d-parity.test.cjs'
       - '.github/workflows/android-apk.yml'
       - '.gitattributes'
     tags: ['android-v*']
@@ -90,19 +91,23 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
-      - name: Test offline native UI, prototype upgrade and Room on API 34
+      - name: Test offline native UI, prototype and Stage C upgrades, and Room on API 34
         run: |
           mkdir "$RUNNER_TEMP/habitline-prototype"
           git archive 8dc549d88534089f81d97706e6e7bdc5907408fb android | tar -x -C "$RUNNER_TEMP/habitline-prototype"
           android/gradlew -p "$RUNNER_TEMP/habitline-prototype/android" --no-daemon :app:assembleDebug
           export BASELINE_APK="$RUNNER_TEMP/habitline-prototype/android/app/build/outputs/apk/debug/app-debug.apk"
+          mkdir "$RUNNER_TEMP/habitline-stage-c"
+          git archive e7b60d429c5690a3c2795337afc668e402c008f1 android | tar -x -C "$RUNNER_TEMP/habitline-stage-c"
+          android/gradlew -p "$RUNNER_TEMP/habitline-stage-c/android" --no-daemon :app:assembleDebug
+          export STAGE_C_APK="$RUNNER_TEMP/habitline-stage-c/android/app/build/outputs/apk/debug/app-debug.apk"
           bash android/ci/emulator-smoke.sh 2>&1 | tee android/emulator.log
 
       - name: Run Android unit tests and lint
         if: ${{ !cancelled() && steps.inspect.outcome == 'success' }}
         working-directory: android
         run: |
-          node --test ../tests/phase5-schedules.test.cjs
+          node --test ../tests/phase5-schedules.test.cjs ../tests/stage-d-parity.test.cjs
           ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:lintDebug 2>&1 | tee checks.log
 
       - name: Build unsigned release candidate
@@ -127,6 +132,7 @@ jobs:
           path: |
             android/*.log
             android/stage-c-emulator.png
+            android/stage-d-emulator.png
             android/app/build/reports/
             android/app/build/test-results/
             android/app/build/outputs/androidTest-results/

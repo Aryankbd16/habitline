@@ -155,7 +155,7 @@ internal fun MainActivity.detailScreen(id: String): ScreenRenderer {
         if (habit == null || schedule == null) {
             binding.detailName.setText(R.string.habit_unavailable)
             listOf(binding.detailStatus, binding.detailDescription, binding.detailSchedule, binding.detailStart,
-                binding.detailPoints, binding.editHabit, binding.archiveHabit, binding.deleteHabit,
+                binding.detailPoints, binding.editHabit, binding.habitAnalytics, binding.archiveHabit, binding.deleteHabit,
                 binding.relationshipCard).forEach { it.isVisible = false }
             binding.detailHistory.setText(R.string.no_completions)
             return@render
@@ -169,7 +169,7 @@ internal fun MainActivity.detailScreen(id: String): ScreenRenderer {
         binding.detailSchedule.setPadding(0, if (habit.description.isBlank()) 0 else binding.root.dp(12), 0, 0)
         binding.detailStart.text = getString(R.string.start_date, LocalDate.parse(schedule.startDate).display())
         val points = NumberFormat.getNumberInstance().apply { maximumFractionDigits = 340 }.format(schedule.points)
-        binding.detailPoints.text = getString(R.string.points_display, points)
+        binding.detailPoints.text = getString(R.string.points_and_xp_display, points, habit.xpValue)
         val history = state.completions.asReversed().asSequence()
             .filter { it.habitId == id && it.day <= state.today.toString() }.take(7)
             .joinToString("\n") { LocalDate.parse(it.day).display() }
@@ -180,6 +180,8 @@ internal fun MainActivity.detailScreen(id: String): ScreenRenderer {
         binding.deleteHabit.isEnabled = !busy
         binding.archiveHabit.setText(if (schedule.archived) R.string.restore_habit else R.string.archive_habit)
         binding.editHabit.setOnClickListener { model.openEditor(state, habit) }
+        binding.habitAnalytics.isEnabled = !busy
+        binding.habitAnalytics.setOnClickListener { model.openAnalytics(habit.id) }
         binding.archiveHabit.setOnClickListener {
             if (schedule.archived) model.setArchived(id, false)
             else MaterialAlertDialogBuilder(this)
@@ -333,7 +335,8 @@ private fun MainActivity.calendarCell(day: CalendarDay, selected: LocalDate, tod
         else -> "" to R.color.app_surface
     }
     return TextView(this).apply {
-        text = NumberFormat.getIntegerInstance().format(day.date.dayOfMonth) + if (mark.isEmpty()) "" else "\n$mark"
+        val dayNumber = NumberFormat.getIntegerInstance().format(day.date.dayOfMonth)
+        text = if (mark.isEmpty()) dayNumber else getString(R.string.calendar_cell_status, dayNumber, mark)
         textSize = 14f
         gravity = Gravity.CENTER
         includeFontPadding = false

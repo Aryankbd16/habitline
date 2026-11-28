@@ -67,6 +67,18 @@ if ! python3 android/ci/stage_c_smoke.py; then
   adb exec-out screencap -p > android/stage-c-emulator.png || true
   status=1
 fi
+adb uninstall com.habitline
+adb install "$STAGE_C_APK"
+if python3 android/ci/stage_d_smoke.py --seed-stage-c; then
+  adb shell am force-stop com.habitline
+  adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+  if ! python3 android/ci/stage_d_smoke.py; then
+    adb exec-out screencap -p > android/stage-d-emulator.png || true
+    status=1
+  fi
+else
+  status=1
+fi
 # Gradle uses the same hosted debug certificate that signed both APKs.
 unset ANDROID_USER_HOME ANDROID_EMULATOR_HOME ANDROID_AVD_HOME
 android/gradlew -p android --no-daemon --stacktrace :app:connectedDebugAndroidTest || status=1
