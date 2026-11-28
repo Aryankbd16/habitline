@@ -8,10 +8,10 @@ import android.view.View
 import com.habitline.R
 import com.habitline.data.AnalyticsDay
 
-internal class ProgressChart(context: Context, rows: List<AnalyticsDay>, points: Boolean) : View(context) {
-    private val values = rows.map { if (points) it.points else it.rate }
-    private val focus = if (points) emptyList() else rows.map { it.focus }
-    private val scale = if (points) rows.maxOfOrNull { it.points }?.coerceAtLeast(1.0) ?: 1.0 else 100.0
+internal class ProgressChart(context: Context) : View(context) {
+    private var values = emptyList<Double?>()
+    private var focus = emptyList<Int?>()
+    private var scale = 100.0
     private val bars = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = context.getColor(R.color.app_primary) }
     private val grid = Paint().apply { color = context.getColor(R.color.app_outline) }
     private val line = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -21,6 +21,13 @@ internal class ProgressChart(context: Context, rows: List<AnalyticsDay>, points:
     }
 
     init { importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO }
+
+    fun show(rows: List<AnalyticsDay>, points: Boolean) {
+        values = rows.map { if (points) it.points else it.rate }
+        focus = if (points) emptyList() else rows.map { it.focus }
+        scale = if (points) rows.maxOfOrNull { it.points }?.coerceAtLeast(1.0) ?: 1.0 else 100.0
+        invalidate()
+    }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)

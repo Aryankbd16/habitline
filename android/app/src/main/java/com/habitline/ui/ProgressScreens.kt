@@ -186,10 +186,12 @@ private class ProgressScreen(private val activity: MainActivity, val binding: Sc
             chart.line(string(R.string.report_daily_chart), heading = true)
             if (range == ReportPeriod.LIFETIME) chart.line(string(R.string.report_recent_chart))
             chart.line(string(R.string.report_chart_legend))
-            chart.addView(ProgressChart(activity, report.selected.daily, points = false), LinearLayout.LayoutParams(-1, chart.dp(132)))
+            val rates = ProgressChart(activity).apply { show(report.selected.daily, points = false) }
+            chart.addView(rates, LinearLayout.LayoutParams(-1, chart.dp(132)))
             chart.line(span(report.selected.daily.map { it.date }))
             chart.line(string(R.string.report_points_chart), heading = true)
-            chart.addView(ProgressChart(activity, report.selected.daily, points = true), LinearLayout.LayoutParams(-1, chart.dp(92)))
+            val points = ProgressChart(activity).apply { show(report.selected.daily, points = true) }
+            chart.addView(points, LinearLayout.LayoutParams(-1, chart.dp(92)))
             chart.action(string(R.string.report_daily_details)) {
                 val days = report.selected.daily.map {
                     string(R.string.report_day_line, it.date.display(), it.completed, it.scheduled,
