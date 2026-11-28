@@ -178,6 +178,21 @@ jobs:
           HABITLINE_TEST_SOURCE="$fixtures/legacy.db" \
             HABITLINE_PHASE4_TEST_SOURCE="$fixtures/before-phase4.db" \
             node --test tests/*.test.cjs
+      - name: Prepare the installed Edge sandbox
+        run: |
+          sandbox=/opt/microsoft/msedge/msedge-sandbox
+          package=microsoft-edge-stable
+          [[ -f "$sandbox" && ! -L "$sandbox" ]]
+          dpkg-query -L "$package" | grep -Fx "$sandbox" > /dev/null
+          checksum=$(dpkg-query --control-show "$package" md5sums | awk -v file="${sandbox#/}" '$2 == file { print $1 }')
+          [[ "$checksum" =~ ^[a-f0-9]{32}$ ]]
+          printf '%s  %s\n' "$checksum" "$sandbox" | md5sum --check
+          stat -c 'Edge sandbox before setup: %u:%g %a' "$sandbox"
+          if [[ "$(stat -c '%u:%g %a' "$sandbox")" != '0:0 4755' ]]; then
+            sudo chown root:root "$sandbox"
+            sudo chmod 4755 "$sandbox"
+          fi
+          [[ -x "$sandbox" && "$(stat -c '%u:%g %a' "$sandbox")" == '0:0 4755' ]]
       - name: Run browser regression
         run: EDGE_EXE=$(command -v microsoft-edge) node tests/stage2-browser.cjs
       - name: Build production web
