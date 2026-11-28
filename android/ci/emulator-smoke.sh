@@ -58,10 +58,17 @@ enable_widget_binding() {
 }
 
 if [[ "$api" == 26 ]]; then
+  # Android 8.0 restricts radio commands to privileged UIDs on this test image.
+  adb root
+  timeout 60 adb wait-for-device
+  [[ "$(adb shell id -u | tr -d '\r')" == 0 ]]
   adb install android/app/build/outputs/apk/debug/app-debug.apk
   adb shell svc wifi disable
   adb shell svc data disable
+  timeout 30 bash -c 'until [[ "$(adb shell settings get global wifi_on | tr -d "\r")" == 0 && "$(adb shell settings get global mobile_data | tr -d "\r")" == 0 ]]; do sleep 1; done'
   enable_widget_binding
+  adb unroot
+  timeout 60 adb wait-for-device
   unset ANDROID_USER_HOME ANDROID_EMULATOR_HOME ANDROID_AVD_HOME
   android/gradlew -p android --no-daemon --stacktrace :app:connectedDebugAndroidTest \
     -Pandroid.testInstrumentationRunnerArguments.class=com.habitline.data.NativeCapabilitiesTest

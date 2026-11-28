@@ -172,8 +172,13 @@ jobs:
           npm ci --prefix web
       - name: Run web and backend regressions
         run: |
-          node --test tests/*.test.cjs
-          EDGE_EXE=$(command -v microsoft-edge) node tests/stage2-browser.cjs
+          fixtures="$RUNNER_TEMP/habitline-web-fixtures"
+          node tests/fixtures/seed-legacy-databases.cjs "$fixtures"
+          HABITLINE_TEST_SOURCE="$fixtures/legacy.db" \
+            HABITLINE_PHASE4_TEST_SOURCE="$fixtures/before-phase4.db" \
+            node --test tests/*.test.cjs
+      - name: Run browser regression
+        run: EDGE_EXE=$(command -v microsoft-edge) node tests/stage2-browser.cjs
       - name: Build production web
         run: npm --prefix web run build
 

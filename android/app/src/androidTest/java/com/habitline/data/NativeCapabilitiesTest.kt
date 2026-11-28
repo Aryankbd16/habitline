@@ -42,7 +42,7 @@ class NativeCapabilitiesTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
 
-    @Test fun remindersPersistAndOnlyOneValidatedClaimCanPublish() = runBlocking {
+    @Test fun remindersPersistAndOnlyOneValidatedClaimCanPublish(): Unit = runBlocking {
         val name = "native-test-${uuid()}"
         val preferences = context.getSharedPreferences(name, Context.MODE_PRIVATE)
         val clock = Clock.fixed(Instant.parse("2026-03-02T09:30:00Z"), ZoneOffset.UTC)
@@ -93,7 +93,7 @@ class NativeCapabilitiesTest {
         }
     }
 
-    @Test fun notificationAndTwoRealWidgetBindingsUseTheSameCompletionLedger() = runBlocking {
+    @Test fun notificationAndTwoRealWidgetBindingsUseTheSameCompletionLedger(): Unit = runBlocking {
         val repo = HabitRepository(context)
         val host = AppWidgetHost(context, 737)
         val manager = AppWidgetManager.getInstance(context)
@@ -210,7 +210,7 @@ class NativeCapabilitiesTest {
         }
     }
 
-    @Test fun oneTimerIsRetainedReplacedAndCancelledByRoomChanges() = runBlocking {
+    @Test fun oneTimerIsRetainedReplacedAndCancelledByRoomChanges(): Unit = runBlocking {
         val repository = HabitRepository(context)
         val manager = androidx.work.WorkManager.getInstance(context)
         val now = repository.nativeSnapshot().now

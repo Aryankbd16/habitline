@@ -1,6 +1,6 @@
 # Habitline Stage E report
 
-Stage E is implemented and has passed local source and regression checks. Hosted Android verification is pending approval to push the Stage E commit. Stage E exit criteria remain open until the hosted run, lint comparison, and APK and report checks pass.
+Stage E is implemented. The first hosted run built the APK and passed Android unit tests and lint. Emulator and web verification failed. Stage E exit criteria remain open pending verification of the follow-up fixes.
 
 ## Baseline and build
 
@@ -23,10 +23,16 @@ Work started on `habitline_checkpointBranch` at `21082e45a33add879678bf68db3d67d
 | Automation syntax | GitHub Actions workflow passed actionlint. The emulator shell script passed Bash syntax validation. All four Python smoke scripts parsed. |
 | Web and backend regressions | 11 Node tests and the existing headless Microsoft Edge workflow passed. |
 | Production web build | Passed with the existing Vite warning for a minified chunk above 500 kB. |
-| Android instrumentation and emulator | Pending. API 34 runs all 12 instrumentation tests and the offline UI, upgrade and reboot smoke tests. API 26 runs the three Stage E native instrumentation tests. |
-| Android lint | Pending. Stage D's verified baseline was 51 warnings and zero errors, with the chart constructor warning eliminated. |
-| APK and reports | Pending. The workflow checks the signature, package and API level and rejects Internet and exact-alarm permissions. It uploads `habitline-1.4-native-debug-<run>-<attempt>`, plus emulator logs and test and lint reports. |
+| Android instrumentation and emulator | API 34 passed the existing smoke regressions and nine Room tests. The new suite failed JUnit initialization. The Stage E UI test verified existing data after upgrading from Stage D, then restarted before the reminder save was confirmed. API 26 booted and installed the APK, then stopped at the shell Wi-Fi command before instrumentation. |
+| Android lint | Passed with zero errors and 39 warnings, down from 51 warnings and zero errors on Stage D. The chart constructor finding remained absent. The sole new finding is a WorkManager dependency update suggestion. |
+| APK and reports | Both archive digests matched GitHub. The debug APK is `com.habitline` version `1.4-native` (5), min API 26, target API 34. The runner verified its debug signature. APK SHA-256 `659aa9c9b207212f2decdb23c3f161808bf26e21e150c591b174dd1599451c16`. The packaged manifest has no Internet or exact-alarm permission. |
 
 The hosted suite builds the real Stage D APK, seeds a habit and completion, goal, challenge and profile, and checks that those records and XP survive the offline upgrade. It covers notification permission denial, restart and disable persistence, reboot work registration, time-zone changes on API 34, timer replacement and cancellation, two real widget bindings, and the widget refresh after a notification completion. The Android job retains the prototype and Stage C/D regressions. An independent hosted job runs the existing web and backend tests, Edge workflow and production web build. [Hosted workflow](../.github/workflows/android-apk.yml).
 
-The local Android checks used build tools, API stubs and library artifacts. Room code generation, Android lint, the APK and end-to-end Android execution await the hosted run. Physical launcher coverage, OEM-specific power behavior, and Android versions above API 34 remain unverified. [Plan](STAGE-E-PLAN.md), [audit](STAGE-E-AUDIT.md).
+## First hosted run
+
+Attempt 1 of GitHub Actions run `46121557894` tested commit `e7c9432dc0c916500117038a42b71ad6fc1f5234`. The available Android reports contain API 34 results, lint XML and all 17 passing Android JVM tests. API 26 has setup logs only. Three web/backend regression tests could not open the untracked SQLite inputs on the runner. The hosted Edge test and production web build were skipped after that failure. [Hosted run](https://github.com/Aryankbd16/habitline/actions/runs/46121557894), [debug APK](https://github.com/Aryankbd16/habitline/actions/runs/46121557894/artifacts/15253637825), [verification reports](https://github.com/Aryankbd16/habitline/actions/runs/46121557894/artifacts/15253474890).
+
+The follow-up gives the new JUnit methods explicit `Unit` results, waits for Habit Details to confirm the reminder save before force-stopping, and uses privileged ADB only for setup on the disposable API 26 AOSP emulator. CI now generates synthetic legacy SQLite fixtures with the same preservation assertions. All 11 Node regressions passed locally using those generated fixtures. A second hosted run must confirm the fixes.
+
+Physical launcher coverage, OEM-specific power behavior, and Android versions above API 34 remain unverified. [Plan](STAGE-E-PLAN.md), [audit](STAGE-E-AUDIT.md).

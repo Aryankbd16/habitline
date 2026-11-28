@@ -10,7 +10,7 @@ const Database = require('better-sqlite3')
 test('Phase 4 migration, XP, challenges, privacy and two-account social workflows', { timeout: 30000 }, async () => {
   const directory = mkdtempSync(join(tmpdir(), 'habitline-phase4-'))
   const databasePath = join(directory, 'audit.db')
-  copyFileSync('data/habit_tracker.db.before-phase4.bak', databasePath)
+  copyFileSync(process.env.HABITLINE_PHASE4_TEST_SOURCE || 'data/habit_tracker.db.before-phase4.bak', databasePath)
   let server, origin, cookie, thirdCookie
   let stderr = ''
   const tables = ['users','habits','completions','sessions','habit_relationships','settings','goals','goal_habits','milestones']

@@ -20,6 +20,14 @@ def open_reminder():
     tap("habit_reminder", scroll=True)
 
 
+def save_and_reopen_reminder():
+    tap("save_reminder", scroll=True, enabled="true")
+    # Habit Details appears only after the asynchronous Room save succeeds.
+    find("detail_name", text="⭐  StageCProgress")
+    restart()
+    open_reminder()
+
+
 def verify_stage_e():
     offline()
     launch()
@@ -39,9 +47,7 @@ def verify_stage_e():
     tap("reminder_permission", scroll=True)
     tap("com.android.permissioncontroller:id/permission_deny_button")
     find("reminder_permission_message", text="Enable notifications to receive this reminder.", scroll=True)
-    tap("save_reminder", scroll=True)
-    restart()
-    open_reminder()
+    save_and_reopen_reminder()
     find("reminder_enabled", checked="true")
     find("reminder_permission_message", text="Enable notifications to receive this reminder.", scroll=True)
     offline()
@@ -54,9 +60,7 @@ def verify_after_reboot():
     open_reminder()
     find("reminder_enabled", checked="true")
     tap("reminder_enabled", checked="true")
-    tap("save_reminder", scroll=True)
-    restart()
-    open_reminder()
+    save_and_reopen_reminder()
     find("reminder_enabled", checked="false")
     offline()
     print("The Stage E reminder survived reboot, and disabling it persisted after a process restart.")
