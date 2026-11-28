@@ -131,6 +131,13 @@
             android:minHeight="48dp"
             android:text="@string/analytics" />
         <com.google.android.material.button.MaterialButton
+            android:id="@+id/habit_reminder"
+            style="@style/Habitline.Button.Outlined"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/reminder_settings" />
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/archive_habit"
             style="@style/Habitline.Button.Outlined"
             android:layout_width="wrap_content"

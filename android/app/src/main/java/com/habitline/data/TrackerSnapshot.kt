@@ -8,7 +8,8 @@ data class TrackerSnapshot(
     val habits: List<LocalHabit>, val schedules: List<ScheduleRevision>,
     val completions: List<HabitCompletion>, val widgets: Map<Int, String>, val today: LocalDate,
     val settings: LocalSettings = LocalSettings(), val links: List<HabitLink> = emptyList(),
-    val progress: ProgressRecords = ProgressRecords()
+    val progress: ProgressRecords = ProgressRecords(),
+    val reminders: Map<String, ReminderState> = emptyMap()
 ) {
     private val revisions = schedules.groupBy { it.habitId }.mapValues { (_, rows) -> rows.sortedBy { it.effectiveFrom } }
     private val byDay = completions.groupBy { it.day }.mapValues { (_, rows) -> rows.associateBy { it.habitId } }

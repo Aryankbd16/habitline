@@ -23,6 +23,14 @@
         android:textSize="13sp"
         android:paddingBottom="16dp" />
 
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/overviewButton"
+        style="@style/Habitline.Button.Outlined"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:text="@string/widget_use_overview" />
+
     <ListView
         android:id="@+id/habitListView"
         android:layout_width="match_parent"

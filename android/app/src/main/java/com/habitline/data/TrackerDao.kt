@@ -18,6 +18,12 @@ interface TrackerDao {
     @Query("SELECT * FROM preferences WHERE profileId = :id")
     fun preferences(id: String): List<ProfilePreference>
 
+    @Query("SELECT * FROM preferences WHERE profileId = :owner AND `key` = :key")
+    fun preference(owner: String, key: String): ProfilePreference?
+
+    @Query("DELETE FROM preferences WHERE profileId = :owner AND `key` = :key")
+    fun deletePreference(owner: String, key: String)
+
     @Query("SELECT * FROM habits ORDER BY createdAt, id")
     fun habits(): List<LocalHabit>
 
@@ -35,6 +41,9 @@ interface TrackerDao {
 
     @Query("SELECT * FROM completions ORDER BY day, id")
     fun completions(): List<HabitCompletion>
+
+    @Query("SELECT * FROM completions WHERE day = :day ORDER BY id")
+    fun completionsOn(day: String): List<HabitCompletion>
 
     @Query("SELECT * FROM completions WHERE habitId = :id AND day = :day")
     fun completion(id: String, day: String): HabitCompletion?

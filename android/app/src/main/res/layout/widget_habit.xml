@@ -3,15 +3,16 @@
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@drawable/widget_background"
-    android:padding="16dp">
+    android:orientation="vertical"
+    android:paddingHorizontal="12dp"
+    android:paddingVertical="6dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
         <LinearLayout
             android:layout_width="0dp"
@@ -20,49 +21,119 @@
             android:orientation="vertical">
 
             <TextView
-                android:id="@+id/widget_habit_name"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:text="@string/app_name"
                 android:textColor="#F5F4F2"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:maxLines="1"
-                android:ellipsize="end" />
+                android:textSize="14sp"
+                android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/widget_streak"
+                android:id="@+id/widget_progress"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textColor="#E8A43F"
-                android:textSize="12sp"
-                android:layout_marginTop="2dp" />
+                android:textSize="12sp" />
         </LinearLayout>
 
-        <ImageView
-            android:id="@+id/widget_check"
-            android:layout_width="34dp"
-            android:layout_height="34dp"
-            android:src="@drawable/ic_check_outline"
-            android:padding="2dp"
-            android:contentDescription="@string/toggle_complete" />
+        <ImageButton
+            android:id="@+id/widget_configure"
+            android:layout_width="48dp"
+            android:layout_height="40dp"
+            android:background="@android:color/transparent"
+            android:contentDescription="@string/widget_config_title"
+            android:src="@drawable/ic_widget_settings" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widget_empty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/widget_empty_today"
+        android:textColor="#F5F4F2"
+        android:textSize="13sp" />
+
+    <LinearLayout
+        android:id="@+id/widget_row_1"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/widget_habit_1"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:gravity="center_vertical"
+            android:maxLines="1"
+            android:textColor="#F5F4F2"
+            android:textSize="13sp" />
+
+        <ImageButton
+            android:id="@+id/widget_check_1"
+            android:layout_width="48dp"
+            android:layout_height="match_parent"
+            android:background="@android:color/transparent"
+            android:contentDescription="@string/toggle_complete"
+            android:src="@drawable/ic_check_outline" />
     </LinearLayout>
 
     <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:id="@+id/widget_row_2"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:layout_marginTop="12dp">
+        android:visibility="gone">
 
-        <ImageView android:id="@+id/dot0" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginEnd="4dp" android:src="@drawable/dot_empty" />
-        <ImageView android:id="@+id/dot1" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginEnd="4dp" android:src="@drawable/dot_empty" />
-        <ImageView android:id="@+id/dot2" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginEnd="4dp" android:src="@drawable/dot_empty" />
-        <ImageView android:id="@+id/dot3" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginEnd="4dp" android:src="@drawable/dot_empty" />
-        <ImageView android:id="@+id/dot4" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginEnd="4dp" android:src="@drawable/dot_empty" />
-        <ImageView android:id="@+id/dot5" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginEnd="4dp" android:src="@drawable/dot_empty" />
-        <ImageView android:id="@+id/dot6" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginEnd="4dp" android:src="@drawable/dot_empty" />
-        <ImageView android:id="@+id/dot7" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginEnd="4dp" android:src="@drawable/dot_empty" />
-        <ImageView android:id="@+id/dot8" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginEnd="4dp" android:src="@drawable/dot_empty" />
-        <ImageView android:id="@+id/dot9" android:layout_width="10dp" android:layout_height="10dp" android:src="@drawable/dot_empty" />
+        <TextView
+            android:id="@+id/widget_habit_2"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:gravity="center_vertical"
+            android:maxLines="1"
+            android:textColor="#F5F4F2"
+            android:textSize="13sp" />
+
+        <ImageButton
+            android:id="@+id/widget_check_2"
+            android:layout_width="48dp"
+            android:layout_height="match_parent"
+            android:background="@android:color/transparent"
+            android:contentDescription="@string/toggle_complete"
+            android:src="@drawable/ic_check_outline" />
     </LinearLayout>
 
+    <LinearLayout
+        android:id="@+id/widget_row_3"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/widget_habit_3"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:gravity="center_vertical"
+            android:maxLines="1"
+            android:textColor="#F5F4F2"
+            android:textSize="13sp" />
+
+        <ImageButton
+            android:id="@+id/widget_check_3"
+            android:layout_width="48dp"
+            android:layout_height="match_parent"
+            android:background="@android:color/transparent"
+            android:contentDescription="@string/toggle_complete"
+            android:src="@drawable/ic_check_outline" />
+    </LinearLayout>
 </LinearLayout>

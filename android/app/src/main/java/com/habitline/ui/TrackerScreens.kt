@@ -155,7 +155,7 @@ internal fun MainActivity.detailScreen(id: String): ScreenRenderer {
         if (habit == null || schedule == null) {
             binding.detailName.setText(R.string.habit_unavailable)
             listOf(binding.detailStatus, binding.detailDescription, binding.detailSchedule, binding.detailStart,
-                binding.detailPoints, binding.editHabit, binding.habitAnalytics, binding.archiveHabit, binding.deleteHabit,
+                binding.detailPoints, binding.editHabit, binding.habitAnalytics, binding.habitReminder, binding.archiveHabit, binding.deleteHabit,
                 binding.relationshipCard).forEach { it.isVisible = false }
             binding.detailHistory.setText(R.string.no_completions)
             return@render
@@ -182,6 +182,8 @@ internal fun MainActivity.detailScreen(id: String): ScreenRenderer {
         binding.editHabit.setOnClickListener { model.openEditor(state, habit) }
         binding.habitAnalytics.isEnabled = !busy
         binding.habitAnalytics.setOnClickListener { model.openAnalytics(habit.id) }
+        binding.habitReminder.isEnabled = !busy
+        binding.habitReminder.setOnClickListener { model.openReminder(state, habit) }
         binding.archiveHabit.setOnClickListener {
             if (schedule.archived) model.setArchived(id, false)
             else MaterialAlertDialogBuilder(this)

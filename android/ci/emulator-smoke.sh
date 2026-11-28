@@ -2,12 +2,17 @@
 # Run on the disposable GitHub Linux runner from the checkout root.
 set -euo pipefail
 tools="$ANDROID_HOME/cmdline-tools/latest/bin"
-image='system-images;android-34;default;x86_64'
+api=${HABITLINE_EMULATOR_API:-34}
+case "$api" in
+  34) image='system-images;android-34;default;x86_64' ;;
+  26) image='system-images;android-26;default;x86' ;;
+  *) echo "Unexpected emulator API $api" >&2; exit 1 ;;
+esac
 "$tools/sdkmanager" emulator "$image"
 sudo setfacl -m "u:$(id -un):rw" /dev/kvm
 # Hosted images may set separate SDK and emulator preference directories.
 # Write both the AVD registration and disk image to this job's directory.
-export ANDROID_USER_HOME="$RUNNER_TEMP/habitline-android"
+export ANDROID_USER_HOME="$RUNNER_TEMP/habitline-android-$api"
 export ANDROID_EMULATOR_HOME="$ANDROID_USER_HOME"
 export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
 unset ANDROID_SDK_HOME ANDROID_PREFS_ROOT
@@ -16,20 +21,20 @@ mkdir -p "$ANDROID_AVD_HOME"
   --path "$ANDROID_AVD_HOME/habitline-smoke.avd" <<< no
 test -s "$ANDROID_AVD_HOME/habitline-smoke.avd/config.ini"
 if [[ ! -s "$ANDROID_AVD_HOME/habitline-smoke.ini" ]]; then
-  printf 'avd.ini.encoding=UTF-8\npath=%s\ntarget=android-34\n' \
-    "$ANDROID_AVD_HOME/habitline-smoke.avd" > "$ANDROID_AVD_HOME/habitline-smoke.ini"
+  printf 'avd.ini.encoding=UTF-8\npath=%s\ntarget=android-%s\n' \
+    "$ANDROID_AVD_HOME/habitline-smoke.avd" "$api" > "$ANDROID_AVD_HOME/habitline-smoke.ini"
 fi
 "$ANDROID_HOME/emulator/emulator" -list-avds | grep -Fx habitline-smoke
 export PATH="$ANDROID_HOME/platform-tools:$PATH"
 "$ANDROID_HOME/emulator/emulator" -avd habitline-smoke -port 5554 \
   -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect \
-  > android/emulator-boot.log 2>&1 &
+  > "android/emulator-boot-$api.log" 2>&1 &
 emulator_pid=$!
 export ANDROID_SERIAL=emulator-5554
 trap 'kill "$emulator_pid" 2>/dev/null || true' EXIT
 for ((attempt=0; attempt<90; attempt++)); do
   if ! kill -0 "$emulator_pid" 2>/dev/null; then
-    cat android/emulator-boot.log >&2
+    cat "android/emulator-boot-$api.log" >&2
     exit 1
   fi
   if [[ "$(adb get-state 2>/dev/null || true)" == device ]]; then break; fi
@@ -42,7 +47,26 @@ adb shell wm size 1080x1920
 adb shell wm density 360
 adb shell settings put system screen_off_timeout 1800000
 adb shell settings put secure show_ime_with_hard_keyboard 0
-trap 'adb logcat -d -b crash > android/emulator-crash.log 2>&1 || true; kill "$emulator_pid" 2>/dev/null || true' EXIT
+trap 'adb logcat -d -b crash > "android/emulator-crash-$api.log" 2>&1 || true; kill "$emulator_pid" 2>/dev/null || true' EXIT
+
+enable_widget_binding() {
+  if adb shell cmd appwidget help | grep -F 'grantbind' > /dev/null; then
+    adb shell cmd appwidget grantbind --package com.habitline --user 0
+  else
+    adb shell appwidget grantbind --package com.habitline --user 0
+  fi
+}
+
+if [[ "$api" == 26 ]]; then
+  adb install android/app/build/outputs/apk/debug/app-debug.apk
+  adb shell svc wifi disable
+  adb shell svc data disable
+  enable_widget_binding
+  unset ANDROID_USER_HOME ANDROID_EMULATOR_HOME ANDROID_AVD_HOME
+  android/gradlew -p android --no-daemon --stacktrace :app:connectedDebugAndroidTest \
+    -Pandroid.testInstrumentationRunnerArguments.class=com.habitline.data.NativeCapabilitiesTest
+  exit 0
+fi
 adb install "$BASELINE_APK"
 adb shell cmd connectivity airplane-mode enable
 [[ "$(adb shell settings get global airplane_mode_on | tr -d '\r')" == 1 ]]
@@ -79,6 +103,30 @@ if python3 android/ci/stage_d_smoke.py --seed-stage-c; then
 else
   status=1
 fi
+adb uninstall com.habitline
+adb install "$STAGE_D_APK"
+if python3 android/ci/stage_e_smoke.py --seed-stage-d; then
+  adb shell am force-stop com.habitline
+  adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+  if python3 android/ci/stage_e_smoke.py; then
+    adb reboot
+    timeout 90 adb wait-for-device
+    timeout 180 bash -c 'until [[ "$(adb shell getprop sys.boot_completed | tr -d "\r")" == 1 ]]; do sleep 2; done'
+    adb shell wm dismiss-keyguard
+    if ! timeout 70 bash -c 'until adb shell dumpsys jobscheduler | grep -F "com.habitline/androidx.work.impl.background.systemjob.SystemJobService" > /dev/null; do sleep 2; done'; then
+      echo 'No Habitline WorkManager system job was registered after reboot.' >&2
+      status=1
+    fi
+    python3 android/ci/stage_e_smoke.py --after-reboot || status=1
+  else
+    adb exec-out screencap -p > android/stage-e-emulator.png || true
+    status=1
+  fi
+else
+  status=1
+fi
+enable_widget_binding
+adb shell pm grant com.habitline android.permission.POST_NOTIFICATIONS
 # Gradle uses the same hosted debug certificate that signed both APKs.
 unset ANDROID_USER_HOME ANDROID_EMULATOR_HOME ANDROID_AVD_HOME
 android/gradlew -p android --no-daemon --stacktrace :app:connectedDebugAndroidTest || status=1

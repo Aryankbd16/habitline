@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="reminder_settings">Reminder</string>
+    <string name="reminder_enabled">Remind me</string>
+    <string name="reminder_time_display">Time · %1$s</string>
+    <string name="reminder_schedule_hint">Reminders are delivered on selected days when this habit is scheduled.</string>
+    <string name="reminder_days_required">Select at least one reminder day.</string>
+    <string name="reminder_channel">Habit reminders</string>
+    <string name="reminder_channel_description">Reminders for your scheduled habits</string>
+    <string name="reminder_complete_action">Mark complete</string>
+    <string name="reminder_notification_message">Scheduled for today</string>
+    <string name="reminder_notifications_paused">Enable notifications to receive this reminder.</string>
+    <string name="reminder_notification_access">Notification access</string>
+    <string name="widget_progress_today">Today · Completed %1$d / %2$d</string>
+    <string name="widget_empty_today">No habits scheduled today</string>
+    <string name="widget_use_overview">Use today overview</string>
+    <string name="widget_save_error">Could not save this widget.</string>
+</resources>

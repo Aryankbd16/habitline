@@ -12,8 +12,8 @@ android {
         applicationId = "com.habitline"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.3-progress"
+        versionCode = 5
+        versionName = "1.4-native"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -43,6 +43,7 @@ kapt {
 }
 
 dependencies {
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     kapt("androidx.room:room-compiler:2.6.1")

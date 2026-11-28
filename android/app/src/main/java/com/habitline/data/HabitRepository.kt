@@ -10,7 +10,11 @@ import kotlinx.coroutines.flow.collect
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZonedDateTime
 import java.time.ZoneId
+
+internal data class NativeSnapshot(val now: ZonedDateTime, val tracker: TrackerSnapshot)
 
 class HabitRepository(
     context: Context,
@@ -42,12 +46,92 @@ class HabitRepository(
             profession = preferences[PROFESSION].orEmpty(),
             theme = ThemeChoice.entries.firstOrNull { it.name == preferences[THEME] } ?: ThemeChoice.SYSTEM
         )
+        val habits = dao.habits()
         return TrackerSnapshot(
-            dao.habits(), dao.revisions(), dao.completions(),
+            habits, dao.revisions(), dao.completions(),
             dao.widgets().associate { it.widgetId to it.habitId }, today, settings, dao.links(),
             ProgressRecords(progress.goals(owner), progress.goalHabits(owner), progress.challenges(owner),
-                progress.challengeHabits(owner), progress.events(owner), progress.milestones(owner))
+                progress.challengeHabits(owner), progress.events(owner), progress.milestones(owner)),
+            readReminders(habits, preferences)
         )
+    }
+
+    /** Read only the data used by background reminders and RemoteViews. */
+    internal suspend fun nativeSnapshot() = db.withTransaction {
+        val now = clock.instant().atZone(zone())
+        NativeSnapshot(now, readNative(profile(), now.toLocalDate()))
+    }
+
+    private fun readNative(owner: String, today: LocalDate): TrackerSnapshot {
+        val habits = dao.habits().filter { it.profileId == owner }
+        val preferences = dao.preferences(owner).associate { it.key to it.value }
+        return TrackerSnapshot(
+            habits, dao.revisions(), dao.completionsOn(today.toString()),
+            dao.widgets().associate { it.widgetId to it.habitId }, today,
+            reminders = readReminders(habits, preferences)
+        )
+    }
+
+    private fun readReminders(habits: List<LocalHabit>, values: Map<String, String>): Map<String, ReminderState> =
+        habits.mapNotNull { habit ->
+            val time = habit.reminderTime?.let { runCatching { LocalTime.parse(it) }.getOrNull() }
+                ?: return@mapNotNull null
+            if (time.second != 0 || time.nano != 0) return@mapNotNull null
+            val mask = values["$REMINDER_WEEKDAYS/${habit.id}"]?.toIntOrNull()?.takeIf { it in 1..DAILY_MASK } ?: DAILY_MASK
+            val delivered = values["$REMINDER_DELIVERED/${habit.id}"]?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            habit.id to ReminderState(ReminderSettings(time, mask), delivered)
+        }.toMap()
+
+    suspend fun saveReminder(id: String, settings: ReminderSettings?) = db.withTransaction {
+        val owner = profile()
+        val habit = requireNotNull(dao.habit(id)?.takeIf { it.profileId == owner }) { "This habit was deleted." }
+        val key = "$REMINDER_WEEKDAYS/$id"
+        val oldMask = dao.preference(owner, key)?.value?.toIntOrNull() ?: DAILY_MASK
+        if (habit.reminderTime == settings?.storedTime && (settings == null || oldMask == settings.weekdays)) return@withTransaction
+        val saved = habit.copy(reminderTime = settings?.storedTime, updatedAt = clock.instant().toString())
+        dao.update(saved)
+        if (settings == null) dao.deletePreference(owner, key)
+        else saveNativePreference(owner, key, settings.weekdays.toString())
+        record(owner, "habit", id, "update", mapOf("habit" to saved, "reminderWeekdays" to settings?.weekdays))
+    }
+
+    internal suspend fun deliverReminder(ticket: ReminderTicket, publish: (LocalHabit) -> Boolean) = db.withTransaction {
+        val owner = profile()
+        val now = clock.instant().atZone(zone())
+        val state = readNative(owner, now.toLocalDate())
+        if (!state.acceptsReminder(ticket, now)) return@withTransaction false
+        val through = state.reminders[ticket.habitId]?.deliveredThrough
+        if (through != null && ticket.day <= through) return@withTransaction false
+        val habit = state.habits.first { it.id == ticket.habitId }
+        if (!publish(habit)) return@withTransaction false
+        saveNativePreference(owner, "$REMINDER_DELIVERED/${ticket.habitId}", ticket.day.toString())
+        true
+    }
+
+    internal suspend fun completeFromReminder(ticket: ReminderTicket) = db.withTransaction {
+        val owner = profile()
+        val now = clock.instant().atZone(zone())
+        val state = readNative(owner, now.toLocalDate())
+        val handled = dao.preference(owner, "$REMINDER_ACTION/${ticket.habitId}")?.value
+        if (handled == ticket.day.toString() || !state.acceptsReminder(ticket, now) ||
+            state.reminders[ticket.habitId]?.deliveredThrough != ticket.day) {
+            return@withTransaction false
+        }
+        setCompleted(ticket.habitId, ticket.day, true)
+        true
+    }
+
+    internal suspend fun completeFromWidget(mark: WidgetMark, limit: Int) = db.withTransaction {
+        val owner = profile()
+        val today = localDate(clock.instant())
+        if (!readNative(owner, today).acceptsWidgetMark(mark, limit)) return@withTransaction false
+        setCompleted(mark.habit, mark.day, mark.desired)
+        true
+    }
+
+    private fun saveNativePreference(owner: String, key: String, value: String) {
+        val id = dao.preference(owner, key)?.id ?: eventId("preference/$owner/$key")
+        dao.save(ProfilePreference(id, owner, key, value))
     }
 
     fun observe(): Flow<TrackerSnapshot> = flow {
@@ -281,6 +365,9 @@ class HabitRepository(
             dao.insert(event)
             record(owner, "completion", row.id, "mark", mapOf("completion" to row, "event" to event))
             earn(owner, MilestoneRules(readSnapshot(owner, day)).onMark(habit, reward))
+            if (dao.preference(owner, "$REMINDER_DELIVERED/$id")?.value == key) {
+                saveNativePreference(owner, "$REMINDER_ACTION/$id", key)
+            }
         } else {
             undo(owner, requireNotNull(prior), stamp)
         }
@@ -294,6 +381,9 @@ class HabitRepository(
         val stamp = now.toString()
         for (row in dao.habitCompletions(id)) undo(owner, row, stamp)
         dao.deleteHabit(id)
+        dao.deletePreference(owner, "$REMINDER_WEEKDAYS/$id")
+        dao.deletePreference(owner, "$REMINDER_DELIVERED/$id")
+        dao.deletePreference(owner, "$REMINDER_ACTION/$id")
         dao.insert(Deletion(uuid(), owner, "habit", id, stamp))
         record(owner, "habit", id, "delete", mapOf("id" to id))
     }
@@ -326,6 +416,9 @@ class HabitRepository(
     private companion object {
         const val PROFESSION = "profession"
         const val THEME = "theme"
+        const val REMINDER_WEEKDAYS = "reminder-weekdays"
+        const val REMINDER_DELIVERED = "reminder-delivered"
+        const val REMINDER_ACTION = "reminder-action"
         const val AWARDS_BACKFILLED = "awards-backfilled-stage-d"
     }
 }

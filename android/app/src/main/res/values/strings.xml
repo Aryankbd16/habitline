@@ -1,12 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Habitline</string>
-    <string name="widget_label">Habitline — Habit</string>
-    <string name="widget_config_title">Choose a habit</string>
-    <string name="widget_config_subtitle">Pick which habit this widget should track. Add more widgets to track others.</string>
-    <string name="widget_not_configured">Tap to choose a habit</string>
-    <string name="widget_streak_format">🔥 %d day streak</string>
-    <string name="widget_no_streak">No streak yet</string>
+    <string name="widget_label">Habitline Today</string>
+    <string name="widget_config_title">Widget preferences</string>
+    <string name="widget_config_subtitle">Show today’s habits or feature one habit first.</string>
     <string name="empty_habits_message">Create or restore a habit in Habitline to add it to this widget.</string>
     <string name="new_habit_title">New habit</string>
     <string name="habit_name_hint">Habit name</string>

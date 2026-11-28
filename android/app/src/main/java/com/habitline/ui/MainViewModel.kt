@@ -19,7 +19,8 @@ import com.habitline.data.PersonalChallenge
 import com.habitline.data.ReportPeriod
 import com.habitline.data.LocalSettings
 import com.habitline.data.TrackerSnapshot
-import com.habitline.widget.HabitWidgetProvider
+import com.habitline.data.ReminderSettings
+import com.habitline.nativework.NativeWork
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -187,6 +188,39 @@ internal class MainViewModel(application: Application, private val saved: SavedS
     fun clearMessage() { operationMessage.value = null }
 
     fun selectTab(tab: Tab) { saved["route"] = tab.name }
+    val reminderDraft: Bundle? get() = saved["reminderDraft"]
+
+    fun openReminder(snapshot: TrackerSnapshot, habit: LocalHabit) {
+        if (operationRunning.value) return
+        val reminder = snapshot.reminders[habit.id]?.settings
+        saved["reminderDraft"] = Bundle().apply {
+            putString("id", habit.id)
+            putBoolean("enabled", reminder != null)
+            putString("time", reminder?.storedTime ?: "09:00")
+            putInt("days", reminder?.weekdays ?: snapshot.latestSchedule(habit.id)?.weekdayMask ?: DAILY_MASK)
+        }
+        saved["route"] = "reminder"
+    }
+
+    fun changeReminder(change: Bundle.() -> Unit) {
+        saved["reminderDraft"] = Bundle(requireNotNull(reminderDraft)).apply(change).apply { putBoolean("dirty", true) }
+    }
+
+    fun closeReminder() {
+        val id = requireNotNull(reminderDraft?.getString("id"))
+        saved["route"] = "detail/$id"
+        saved.remove<Bundle>("reminderDraft")
+    }
+
+    fun saveReminder(id: String, settings: ReminderSettings?) = mutate(widgets = true, success = { closeReminder() }) {
+        repository.saveReminder(id, settings)
+    }
+
+    fun openNativeHabit(id: String) {
+        saved["detailParent"] = Tab.HABITS.name
+        saved["route"] = "detail/$id"
+    }
+
     fun openHabit(id: String) {
         if (operationRunning.value) return
         saved["detailParent"] = route.value
@@ -264,7 +298,7 @@ internal class MainViewModel(application: Application, private val saved: SavedS
                 success()
                 if (widgets) {
                     try {
-                        HabitWidgetProvider.refreshAll(getApplication())
+                        NativeWork.request(getApplication())
                     } catch (error: Exception) {
                         if (error is CancellationException) throw error
                         Log.w(TAG, "Could not refresh home-screen widgets", error)

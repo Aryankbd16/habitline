@@ -1,10 +1,13 @@
 package com.habitline.ui
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -25,6 +28,9 @@ import com.habitline.R
 import com.habitline.data.ThemeChoice
 import com.habitline.databinding.ActivityMainBinding
 import com.habitline.databinding.ScreenStorageBinding
+import com.habitline.nativework.NativeIntents
+import com.habitline.nativework.NativeWork
+import com.habitline.nativework.ReminderNotifications
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
@@ -40,8 +46,17 @@ class MainActivity : AppCompatActivity() {
     private var activeRoute: String? = null
     private var renderer: ScreenRenderer? = null
     private var changingBar = false
+    private var pendingNativeIntent: Intent? = null
+    internal var refreshReminderPermission: (() -> Unit)? = null
+    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+        refreshReminderPermission?.invoke()
+        NativeWork.request(this)
+    }
     private val timeChanges = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) { model.refreshTime() }
+        override fun onReceive(context: Context, intent: Intent) {
+            model.refreshTime()
+            if (intent.action == Intent.ACTION_DATE_CHANGED) NativeWork.request(context)
+        }
     }
 
     private val exportLegacy = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -64,6 +79,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         model = ViewModelProvider(this)[MainViewModel::class.java]
         binding = ActivityMainBinding.inflate(layoutInflater)
+        if (savedInstanceState == null) openNativeHabit(intent)
         setContentView(binding.root)
         WindowInsetsControllerCompat(window, binding.root).isAppearanceLightNavigationBars =
             resources.getBoolean(R.bool.light_system_bars)
@@ -83,6 +99,10 @@ class MainActivity : AppCompatActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     combine(model.storage, model.route, model.time, model.busy) { storage, route, time, busy ->
+                        if (!busy) pendingNativeIntent?.let { pending ->
+                            pendingNativeIntent = null
+                            openNativeHabit(pending)
+                        }
                         val result = (storage as? StorageState.Ready)?.snapshot
                         val snapshot = result?.let { if (it.today == time.toLocalDate()) it else it.copy(today = time.toLocalDate()) }
                         if (snapshot == null) {
@@ -108,6 +128,55 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshReminderPermission?.invoke()
+        NativeWork.request(this)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        openNativeHabit(intent)
+    }
+
+    internal fun enableReminderNotifications() {
+        val notifications = ReminderNotifications(this)
+        val prefs = getSharedPreferences("notification-permission", MODE_PRIVATE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            notifications.runtimePermissionMissing() && !prefs.getBoolean("asked", false)
+        ) {
+            prefs.edit().putBoolean("asked", true).apply()
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
+        }
+    }
+
+    private fun openNativeHabit(intent: Intent) {
+        val id = NativeIntents.openHabit(intent) ?: return
+        if (model.busy.value) {
+            pendingNativeIntent = intent
+            return
+        }
+        val discard = when (model.route.value) {
+            "editor" -> if (model.editor?.getBoolean("dirty") == true) model::closeEditor else null
+            "target" -> if (model.targetDraft?.getBoolean("dirty") == true) model::closeTarget else null
+            "reminder" -> if (model.reminderDraft?.getBoolean("dirty") == true) model::closeReminder else null
+            else -> null
+        }
+        if (discard == null) {
+            model.openNativeHabit(id)
+            return
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.discard_changes)
+            .setNegativeButton(R.string.keep_editing, null)
+            .setPositiveButton(R.string.discard) { _, _ ->
+                discard()
+                model.openNativeHabit(id)
+            }.show()
     }
 
     override fun onStart() {
@@ -151,7 +220,8 @@ class MainActivity : AppCompatActivity() {
             Tab.CALENDAR -> R.string.calendar
             Tab.PROFILE -> R.string.profile
             Tab.PROGRESS -> R.string.progress_hub
-            null -> if (route == "target") targetTitle() else if (route.startsWith("detail/")) R.string.habit_detail
+            null -> if (route == "reminder") R.string.reminder_settings else if (route == "target") targetTitle()
+                else if (route.startsWith("detail/")) R.string.habit_detail
                 else if (model.editor?.getBoolean("editing") == true) R.string.edit_habit else R.string.new_habit_title
         }
         switchScreen(route, title, back = tab == null)
@@ -169,6 +239,7 @@ class MainActivity : AppCompatActivity() {
             Tab.PROGRESS -> progressScreen()
             null -> when {
                 route == "target" -> targetScreen()
+                route == "reminder" -> reminderScreen()
                 route.startsWith("detail/") -> detailScreen(route.substringAfter('/'))
                 else -> editorScreen()
             }
@@ -206,6 +277,14 @@ class MainActivity : AppCompatActivity() {
                     .setTitle(R.string.discard_changes)
                     .setNegativeButton(R.string.keep_editing, null)
                     .setPositiveButton(R.string.discard) { _, _ -> model.closeTarget() }
+                    .show()
+            }
+            model.route.value == "reminder" -> {
+                if (model.reminderDraft?.getBoolean("dirty") != true) model.closeReminder()
+                else MaterialAlertDialogBuilder(this)
+                    .setTitle(R.string.discard_changes)
+                    .setNegativeButton(R.string.keep_editing, null)
+                    .setPositiveButton(R.string.discard) { _, _ -> model.closeReminder() }
                     .show()
             }
             model.route.value.startsWith("detail/") -> model.closeDetail()
