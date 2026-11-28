@@ -167,6 +167,7 @@ jobs:
         with:
           node-version: '22'
       - name: Install locked web and backend dependencies
+        id: web-deps
         run: |
           npm ci
           npm ci --prefix web
@@ -180,6 +181,7 @@ jobs:
       - name: Run browser regression
         run: EDGE_EXE=$(command -v microsoft-edge) node tests/stage2-browser.cjs
       - name: Build production web
+        if: ${{ !cancelled() && steps.web-deps.outcome == 'success' }}
         run: npm --prefix web run build
 
   sign:

@@ -4,6 +4,7 @@ const { mkdtempSync, readFileSync, rmSync } = require('node:fs')
 const { tmpdir } = require('node:os')
 const { join } = require('node:path')
 const { once } = require('node:events')
+const { stripVTControlCharacters } = require('node:util')
 
 const work = mkdtempSync(join(tmpdir(), 'habitline-browser-'))
 const children = []
@@ -39,7 +40,7 @@ async function main() {
   })
   let output = ''
   web.stdout.on('data', (chunk) => { output += chunk })
-  const site = await waitFor(() => output.match(/https:\/\/127\.0\.0\.1:\d+/)?.[0], 'Vite startup')
+  const site = await waitFor(() => stripVTControlCharacters(output).match(/https:\/\/127\.0\.0\.1:\d+/)?.[0], 'Vite startup')
   const edge = process.env.EDGE_EXE || 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'
   start(edge, ['--headless=new', '--ignore-certificate-errors', '--disable-gpu', '--no-first-run', '--remote-debugging-port=0', '--user-data-dir=' + work, 'about:blank'])
   const debugPort = await waitFor(() => readFileSync(join(work, 'DevToolsActivePort'), 'utf8').split('\n')[0], 'Edge startup')
